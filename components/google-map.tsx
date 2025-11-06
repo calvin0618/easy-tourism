@@ -187,6 +187,7 @@ export function GoogleMap({
         maximumAge: 60000, // 1분 캐시
       }
     );
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isLoaded]);
 
   // 지도 초기화 및 마커 표시
@@ -305,7 +306,7 @@ export function GoogleMap({
         animation: isSelected ? (google.maps.Animation?.BOUNCE ?? 1) : undefined,
         icon: {
           url: 'http://maps.google.com/mapfiles/ms/icons/red-dot.png',
-          scaledSize: new google.maps.Size(32, 32),
+          scaledSize: { width: 32, height: 32 } as google.maps.Size,
         },
       });
 
@@ -368,7 +369,7 @@ export function GoogleMap({
         title: '내 위치',
         icon: {
           url: 'http://maps.google.com/mapfiles/ms/icons/blue-dot.png',
-          scaledSize: new google.maps.Size(32, 32),
+          scaledSize: { width: 32, height: 32 } as google.maps.Size,
         },
         animation: google.maps.Animation?.DROP,
       });
@@ -417,6 +418,7 @@ export function GoogleMap({
         currentLocationMarkerRef.current = null;
       }
     };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isLoaded, tours, selectedTourId, center, zoom, router, currentLocation]);
 
   // 지도가 로드되지 않았을 때 표시할 내용

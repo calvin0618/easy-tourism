@@ -168,6 +168,7 @@ export function DetailMap({
         maximumAge: 60000, // 1분 캐시
       }
     );
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isLoaded]);
 
   // 지도 초기화 및 마커 표시 (현재 위치만 표시)

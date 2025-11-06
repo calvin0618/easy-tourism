@@ -352,10 +352,10 @@ export function GoogleMap({
         // 다른 인포윈도우 닫기
         infoWindowsRef.current.forEach((iw) => iw.close());
         if (mapInstanceRef.current) {
-          infoWindow.open(
-            mapInstanceRef.current,
-            marker as google.maps.MVCObject
-          );
+          infoWindow.open({
+            map: mapInstanceRef.current,
+            anchor: marker as unknown as google.maps.MVCObject,
+          });
         }
       });
 
@@ -389,10 +389,10 @@ export function GoogleMap({
           (marker) => marker.getTitle() === selectedTour.title
         );
         if (markerIndex !== -1 && infoWindowsRef.current[markerIndex] && mapInstanceRef.current) {
-          infoWindowsRef.current[markerIndex].open(
-            mapInstanceRef.current,
-            markersRef.current[markerIndex] as google.maps.MVCObject
-          );
+          infoWindowsRef.current[markerIndex].open({
+            map: mapInstanceRef.current,
+            anchor: markersRef.current[markerIndex] as unknown as google.maps.MVCObject,
+          });
         }
       }
     } else {

@@ -351,10 +351,12 @@ export function GoogleMap({
       marker.addListener('click', () => {
         // 다른 인포윈도우 닫기
         infoWindowsRef.current.forEach((iw) => iw.close());
-        infoWindow.open(
-          mapInstanceRef.current,
-          marker
-        );
+        if (mapInstanceRef.current) {
+          infoWindow.open(
+            mapInstanceRef.current,
+            marker as google.maps.MVCObject
+          );
+        }
       });
 
       markersRef.current.push(marker);
@@ -386,10 +388,10 @@ export function GoogleMap({
         const markerIndex = markersRef.current.findIndex(
           (marker) => marker.getTitle() === selectedTour.title
         );
-        if (markerIndex !== -1 && infoWindowsRef.current[markerIndex]) {
+        if (markerIndex !== -1 && infoWindowsRef.current[markerIndex] && mapInstanceRef.current) {
           infoWindowsRef.current[markerIndex].open(
             mapInstanceRef.current,
-            markersRef.current[markerIndex]
+            markersRef.current[markerIndex] as google.maps.MVCObject
           );
         }
       }

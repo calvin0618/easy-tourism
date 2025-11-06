@@ -78,7 +78,7 @@ function isClientSide(): boolean {
 async function fetchApi<T>(
   endpoint: string,
   params: Record<string, string | number | undefined>
-): Promise<T> {
+): Promise<ApiResponse<T>> {
   // 클라이언트 사이드에서는 API Route를 통해 호출
   if (isClientSide()) {
     return fetchApiViaRoute(endpoint, params);
@@ -94,7 +94,7 @@ async function fetchApi<T>(
 async function fetchApiViaRoute<T>(
   endpoint: string,
   params: Record<string, string | number | undefined>
-): Promise<T> {
+): Promise<ApiResponse<T>> {
   // endpoint를 action으로 변환
   const actionMap: Record<string, string> = {
     '/areaCode2': 'areaCodes',
@@ -236,7 +236,7 @@ async function fetchApiViaRoute<T>(
 async function fetchApiDirect<T>(
   endpoint: string,
   params: Record<string, string | number | undefined>
-): Promise<T> {
+): Promise<ApiResponse<T>> {
   const apiKey = getApiKey();
 
   // 파라미터 정리 (undefined 제거)

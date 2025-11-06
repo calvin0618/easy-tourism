@@ -352,8 +352,11 @@ export function GoogleMap({
         // 다른 인포윈도우 닫기
         infoWindowsRef.current.forEach((iw) => iw.close());
         if (mapInstanceRef.current) {
-          // InfoWindow.open()은 두 개의 인자를 받는 메서드 시그니처 사용
-          infoWindow.open(mapInstanceRef.current, marker);
+          // InfoWindow.open()은 옵션 객체를 받으며, anchor는 MVCObject 타입이 필요
+          infoWindow.open({
+            map: mapInstanceRef.current,
+            anchor: marker as unknown as google.maps.MVCObject,
+          });
         }
       });
 
@@ -387,11 +390,11 @@ export function GoogleMap({
           (marker) => marker.getTitle() === selectedTour.title
         );
         if (markerIndex !== -1 && infoWindowsRef.current[markerIndex] && mapInstanceRef.current) {
-          // InfoWindow.open()은 두 개의 인자를 받는 메서드 시그니처 사용
-          infoWindowsRef.current[markerIndex].open(
-            mapInstanceRef.current,
-            markersRef.current[markerIndex]
-          );
+          // InfoWindow.open()은 옵션 객체를 받으며, anchor는 MVCObject 타입이 필요
+          infoWindowsRef.current[markerIndex].open({
+            map: mapInstanceRef.current,
+            anchor: markersRef.current[markerIndex] as unknown as google.maps.MVCObject,
+          });
         }
       }
     } else {

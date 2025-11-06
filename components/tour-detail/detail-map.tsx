@@ -186,8 +186,6 @@ export function DetailMap({
         fullscreenControl: true,
         // Places API가 자동으로 마커를 추가하지 않도록 설정
         disableDefaultUI: false,
-        // 지도 클릭 시 자동 마커 추가 방지
-        clickableIcons: false,
       });
       
       console.log('[DetailMap] 지도 초기화 완료:', {
@@ -235,7 +233,6 @@ export function DetailMap({
         },
         animation: google.maps.Animation?.DROP,
         zIndex: 1000, // 다른 마커보다 위에 표시
-        optimized: false, // 마커 최적화 비활성화 (확실한 제어를 위해)
       });
       
       currentLocationMarkerRef.current = marker;

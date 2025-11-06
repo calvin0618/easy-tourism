@@ -351,10 +351,10 @@ export function GoogleMap({
       marker.addListener('click', () => {
         // 다른 인포윈도우 닫기
         infoWindowsRef.current.forEach((iw) => iw.close());
-        infoWindow.open({
-          map: mapInstanceRef.current,
-          anchor: marker,
-        });
+        infoWindow.open(
+          mapInstanceRef.current,
+          marker
+        );
       });
 
       markersRef.current.push(marker);

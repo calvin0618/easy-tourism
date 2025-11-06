@@ -15,16 +15,20 @@
 import { useState, useEffect, KeyboardEvent } from 'react';
 import { useRouter, usePathname, useSearchParams } from 'next/navigation';
 import Link from 'next/link';
-import { SignedOut, SignInButton, SignedIn, UserButton } from '@clerk/nextjs';
+import { SignedOut, SignInButton, SignUpButton, SignedIn, UserButton } from '@clerk/nextjs';
 import { Button } from '@/components/ui/button';
 import { Search } from 'lucide-react';
 import { Input } from '@/components/ui/input';
+import { ThemeToggle } from '@/components/theme-toggle';
+import { LanguageSelector } from '@/components/language-selector';
+import { useI18n } from '@/components/providers/i18n-provider';
 
 export function Header() {
   const router = useRouter();
   const pathname = usePathname();
   const searchParams = useSearchParams();
   const [searchKeyword, setSearchKeyword] = useState(searchParams.get('q') || '');
+  const { t } = useI18n();
 
   // URL 쿼리 파라미터 변경 시 검색창 state 업데이트
   useEffect(() => {
@@ -77,9 +81,9 @@ export function Header() {
               value={searchKeyword}
               onChange={(e) => setSearchKeyword(e.target.value)}
               onKeyDown={handleKeyDown}
-              placeholder="관광지 검색..."
+              placeholder={t.header.searchPlaceholder}
               className="w-full pl-10 pr-12"
-              aria-label="관광지 검색"
+              aria-label={t.header.searchPlaceholder}
             />
             {searchKeyword && (
               <Button
@@ -89,7 +93,7 @@ export function Header() {
                 onClick={handleSearch}
                 className="absolute right-1 top-1/2 transform -translate-y-1/2 h-7 px-2"
               >
-                검색
+                {t.header.search}
               </Button>
             )}
           </div>
@@ -112,14 +116,21 @@ export function Header() {
           <Search className="h-5 w-5" />
         </Button>
 
-        {/* 로그인/회원가입 버튼 */}
+        {/* 다크모드, 언어 선택, 로그인/회원가입 버튼 */}
         <div className="flex items-center gap-2">
+          <ThemeToggle />
+          <LanguageSelector />
           <SignedOut>
             <SignInButton mode="modal">
               <Button variant="ghost" size="sm">
-                로그인
+                {t.common.login}
               </Button>
             </SignInButton>
+            <SignUpButton mode="modal">
+              <Button size="sm">
+                {t.common.signup}
+              </Button>
+            </SignUpButton>
           </SignedOut>
           <SignedIn>
             <UserButton

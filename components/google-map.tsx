@@ -127,8 +127,13 @@ export function GoogleMap({
   const mapInstanceRef = useRef<google.maps.Map | null>(null);
   const markersRef = useRef<google.maps.Marker[]>([]);
   const infoWindowsRef = useRef<google.maps.InfoWindow[]>([]);
+  const currentLocationMarkerRef = useRef<google.maps.Marker | null>(null);
   const router = useRouter();
   const [isLoaded, setIsLoaded] = useState(false);
+  const [currentLocation, setCurrentLocation] = useState<{ lat: number; lng: number } | null>(null);
+  
+  // 서울시청 좌표 (기본값)
+  const DEFAULT_LOCATION = { lat: 37.5665, lng: 126.9780 };
 
   // 구글 지도 API 로드 확인
   useEffect(() => {
@@ -152,6 +157,38 @@ export function GoogleMap({
     checkGoogleMaps();
   }, []);
 
+  // 현재 위치 가져오기
+  useEffect(() => {
+    if (!isLoaded || typeof window === 'undefined' || !navigator.geolocation) {
+      // Geolocation을 지원하지 않으면 서울시청 좌표 사용
+      console.log('[GoogleMap] Geolocation 미지원, 서울시청 좌표 사용');
+      setCurrentLocation(DEFAULT_LOCATION);
+      return;
+    }
+
+    console.log('[GoogleMap] 현재 위치 요청 시작');
+    navigator.geolocation.getCurrentPosition(
+      (position) => {
+        const location = {
+          lat: position.coords.latitude,
+          lng: position.coords.longitude,
+        };
+        console.log('[GoogleMap] 현재 위치 가져오기 성공:', location);
+        setCurrentLocation(location);
+      },
+      (error) => {
+        console.warn('[GoogleMap] 현재 위치 가져오기 실패, 서울시청 좌표 사용:', error.message);
+        // 위치 권한이 거부되었거나 오류가 발생하면 서울시청 좌표 사용
+        setCurrentLocation(DEFAULT_LOCATION);
+      },
+      {
+        enableHighAccuracy: true,
+        timeout: 5000,
+        maximumAge: 60000, // 1분 캐시
+      }
+    );
+  }, [isLoaded]);
+
   // 지도 초기화 및 마커 표시
   useEffect(() => {
     if (!isLoaded || !mapRef.current) return;
@@ -160,13 +197,31 @@ export function GoogleMap({
     if (tours.length === 0) {
       if (!mapInstanceRef.current) {
         console.log('[GoogleMap] 기본 지도 초기화 (데이터 없음)');
+        const centerLocation = currentLocation || DEFAULT_LOCATION;
         mapInstanceRef.current = new google.maps.Map(mapRef.current, {
-          center: { lat: 37.5665, lng: 126.9780 }, // 서울시청
-          zoom: 10,
+          center: centerLocation,
+          zoom: 13,
           mapTypeControl: true,
           zoomControl: true,
           streetViewControl: false,
           fullscreenControl: true,
+        });
+      } else if (currentLocation) {
+        // 현재 위치가 설정되면 지도 중심 업데이트
+        mapInstanceRef.current.setCenter(currentLocation);
+      }
+      
+      // 현재 위치 마커 추가
+      if (currentLocation && !currentLocationMarkerRef.current) {
+        currentLocationMarkerRef.current = new google.maps.Marker({
+          position: currentLocation,
+          map: mapInstanceRef.current,
+          title: '내 위치',
+          icon: {
+            url: 'http://maps.google.com/mapfiles/ms/icons/blue-dot.png',
+            scaledSize: new google.maps.Size(32, 32),
+          },
+          animation: google.maps.Animation?.DROP,
         });
       }
       return;
@@ -177,13 +232,30 @@ export function GoogleMap({
       console.warn('[GoogleMap] 유효한 좌표를 가진 관광지가 없습니다');
       // 유효한 좌표가 없어도 기본 지도는 표시
       if (!mapInstanceRef.current) {
+        const centerLocation = currentLocation || DEFAULT_LOCATION;
         mapInstanceRef.current = new google.maps.Map(mapRef.current, {
-          center: { lat: 37.5665, lng: 126.9780 },
-          zoom: 10,
+          center: centerLocation,
+          zoom: 13,
           mapTypeControl: true,
           zoomControl: true,
           streetViewControl: false,
           fullscreenControl: true,
+        });
+      } else if (currentLocation) {
+        mapInstanceRef.current.setCenter(currentLocation);
+      }
+      
+      // 현재 위치 마커 추가
+      if (currentLocation && !currentLocationMarkerRef.current) {
+        currentLocationMarkerRef.current = new google.maps.Marker({
+          position: currentLocation,
+          map: mapInstanceRef.current,
+          title: '내 위치',
+          icon: {
+            url: 'http://maps.google.com/mapfiles/ms/icons/blue-dot.png',
+            scaledSize: new google.maps.Size(32, 32),
+          },
+          animation: google.maps.Animation?.DROP,
         });
       }
       return;
@@ -208,11 +280,20 @@ export function GoogleMap({
     // 기존 마커 및 인포윈도우 제거
     markersRef.current.forEach((marker) => marker.setMap(null));
     infoWindowsRef.current.forEach((infoWindow) => infoWindow.close());
+    if (currentLocationMarkerRef.current) {
+      currentLocationMarkerRef.current.setMap(null);
+      currentLocationMarkerRef.current = null;
+    }
     markersRef.current = [];
     infoWindowsRef.current = [];
 
     // 관광지 마커 생성
     const bounds_instance = new google.maps.LatLngBounds();
+    
+    // 현재 위치를 bounds에 포함
+    if (currentLocation) {
+      bounds_instance.extend(new google.maps.LatLng(currentLocation.lat, currentLocation.lng));
+    }
 
     validTours.forEach((tour) => {
       // 선택된 관광지인 경우 애니메이션 추가
@@ -222,6 +303,10 @@ export function GoogleMap({
         map: mapInstanceRef.current,
         title: tour.title,
         animation: isSelected ? (google.maps.Animation?.BOUNCE ?? 1) : undefined,
+        icon: {
+          url: 'http://maps.google.com/mapfiles/ms/icons/red-dot.png',
+          scaledSize: new google.maps.Size(32, 32),
+        },
       });
 
       bounds_instance.extend(tour.position);
@@ -265,12 +350,29 @@ export function GoogleMap({
       marker.addListener('click', () => {
         // 다른 인포윈도우 닫기
         infoWindowsRef.current.forEach((iw) => iw.close());
-        infoWindow.open(mapInstanceRef.current, marker);
+        infoWindow.open({
+          map: mapInstanceRef.current,
+          anchor: marker,
+        });
       });
 
       markersRef.current.push(marker);
       infoWindowsRef.current.push(infoWindow);
     });
+
+    // 현재 위치 마커 생성
+    if (currentLocation && mapInstanceRef.current) {
+      currentLocationMarkerRef.current = new google.maps.Marker({
+        position: currentLocation,
+        map: mapInstanceRef.current,
+        title: '내 위치',
+        icon: {
+          url: 'http://maps.google.com/mapfiles/ms/icons/blue-dot.png',
+          scaledSize: new google.maps.Size(32, 32),
+        },
+        animation: google.maps.Animation?.DROP,
+      });
+    }
 
     // 선택된 관광지가 있으면 해당 마커로 이동
     if (selectedTourId) {
@@ -291,9 +393,14 @@ export function GoogleMap({
         }
       }
     } else {
-      // 모든 마커를 포함하도록 지도 범위 조정
-      if (validTours.length > 1 && mapInstanceRef.current) {
-        mapInstanceRef.current.fitBounds(bounds_instance);
+      // 모든 마커와 현재 위치를 포함하도록 지도 범위 조정
+      if (mapInstanceRef.current) {
+        if (validTours.length > 1 || currentLocation) {
+          mapInstanceRef.current.fitBounds(bounds_instance);
+        } else if (validTours.length === 1) {
+          mapInstanceRef.current.setCenter(validTours[0].position);
+          mapInstanceRef.current.setZoom(15);
+        }
       }
     }
 
@@ -305,8 +412,12 @@ export function GoogleMap({
     // cleanup
     return () => {
       (window as any).openTourDetail = undefined;
+      if (currentLocationMarkerRef.current) {
+        currentLocationMarkerRef.current.setMap(null);
+        currentLocationMarkerRef.current = null;
+      }
     };
-  }, [isLoaded, tours, selectedTourId, center, zoom, router]);
+  }, [isLoaded, tours, selectedTourId, center, zoom, router, currentLocation]);
 
   // 지도가 로드되지 않았을 때 표시할 내용
   if (!isLoaded) {

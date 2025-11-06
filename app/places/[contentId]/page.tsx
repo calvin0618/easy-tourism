@@ -183,12 +183,6 @@ export default async function PlaceDetailPage({ params }: PageProps) {
           </h1>
           <div className="flex items-center gap-2 flex-wrap">
             <Badge variant="secondary">{contentTypeLabel}</Badge>
-            {detail.cat1 && (
-              <Badge variant="outline" className="text-xs">
-                {detail.cat1}
-                {detail.cat2 && ` · ${detail.cat2}`}
-              </Badge>
-            )}
           </div>
         </div>
 

@@ -8,6 +8,9 @@ import { Toaster } from "@/components/ui/sonner";
 import { Header } from "@/components/header";
 import { Footer } from "@/components/footer";
 import { SyncUserProvider } from "@/components/providers/sync-user-provider";
+import { ThemeProvider } from "@/components/providers/theme-provider";
+import { I18nProvider } from "@/components/providers/i18n-provider";
+import { LanguageSync } from "@/components/language-sync";
 import ErrorBoundary from "@/components/error-boundary";
 import "./globals.css";
 
@@ -43,7 +46,7 @@ export default function RootLayout({
 
   return (
     <ClerkProvider localization={koKR}>
-      <html lang="ko">
+      <html lang="ko" suppressHydrationWarning>
         <body
           className={`${geistSans.variable} ${geistMono.variable} antialiased`}
         >
@@ -66,6 +69,9 @@ export default function RootLayout({
               }}
             />
           )}
+          <ThemeProvider attribute="class" defaultTheme="dark" enableSystem>
+            <I18nProvider>
+              <LanguageSync />
           <SyncUserProvider>
             <ErrorBoundary>
               <div className="flex min-h-screen flex-col">
@@ -76,6 +82,8 @@ export default function RootLayout({
               <Toaster />
             </ErrorBoundary>
           </SyncUserProvider>
+            </I18nProvider>
+          </ThemeProvider>
         </body>
       </html>
     </ClerkProvider>

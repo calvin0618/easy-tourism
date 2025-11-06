@@ -192,7 +192,7 @@ export function TourList({
         setLoadingMore(false);
       }
     },
-    [areaCode, contentTypes.join(','), query, sortBy]
+    [areaCode, contentTypes, query, sortBy]
   );
 
   // tours 상태 변경 시 부모 컴포넌트에 알림 (렌더링 후 호출)
@@ -284,7 +284,7 @@ export function TourList({
       {/* 검색 결과 개수 표시 */}
       {query && (
         <div className="text-sm text-muted-foreground">
-          <span className="font-medium text-foreground">"{query}"</span> 검색 결과{' '}
+          <span className="font-medium text-foreground">&ldquo;{query}&rdquo;</span> 검색 결과{' '}
           <span className="font-medium">{totalCount.toLocaleString()}</span>개
         </div>
       )}

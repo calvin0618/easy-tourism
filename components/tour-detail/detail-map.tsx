@@ -59,18 +59,6 @@ function convertKATECToWGS84(
 }
 
 /**
- * 구글 지도 길찾기 URL 생성 (현재 위치 → 목적지)
- * @param lat 목적지 위도
- * @param lng 목적지 경도
- * @returns 구글 지도 길찾기 URL
- */
-function getDirectionsUrl(lat: number, lng: number): string {
-  // origin을 생략하면 자동으로 "내 위치"로 인식
-  // 또는 명시적으로 "현재 위치"를 설정할 수도 있음
-  return `https://www.google.com/maps/dir/?api=1&destination=${lat},${lng}`;
-}
-
-/**
  * 좌표를 클립보드에 복사
  */
 function copyCoordinatesToClipboard(lat: number, lng: number): Promise<void> {
@@ -225,7 +213,7 @@ export function DetailMap({
         infoWindowRef.current = null;
       }
     };
-  }, [isLoaded, mapx, mapy, title, address]);
+  }, [isLoaded, position, title, address]);
 
   // 길찾기 버튼 클릭 (현재 위치 → 목적지)
   const handleDirections = async () => {

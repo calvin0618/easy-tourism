@@ -114,6 +114,7 @@ async function fetchApiViaRoute<T>(
   // undefined 값은 제외하고, 문자열/숫자만 포함
   const cleanParams = Object.fromEntries(
     Object.entries(params)
+      // eslint-disable-next-line @typescript-eslint/no-unused-vars
       .filter(([_, value]) => value !== undefined && value !== null && value !== '')
       .map(([key, value]) => [key, String(value)])
   );
@@ -243,6 +244,7 @@ async function fetchApiDirect<T>(
     serviceKey: apiKey,
     ...COMMON_PARAMS,
     ...Object.fromEntries(
+      // eslint-disable-next-line @typescript-eslint/no-unused-vars
       Object.entries(params).filter(([_, value]) => value !== undefined)
     ),
   });

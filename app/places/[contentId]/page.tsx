@@ -56,7 +56,7 @@ export async function generateMetadata({
         type: 'website',
       },
     };
-  } catch (error) {
+  } catch {
     return {
       title: '관광지 상세 - My Trip',
       description: '관광지 상세 정보를 확인하세요',

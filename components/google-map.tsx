@@ -14,7 +14,7 @@
 
 'use client';
 
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useRef, useState, useMemo } from 'react';
 import { useRouter } from 'next/navigation';
 import type { TourItem } from '@/lib/types/tour';
 import { CONTENT_TYPE_LABELS } from '@/lib/types/tour';
@@ -133,7 +133,7 @@ export function GoogleMap({
   const [currentLocation, setCurrentLocation] = useState<{ lat: number; lng: number } | null>(null);
   
   // 서울시청 좌표 (기본값)
-  const DEFAULT_LOCATION = { lat: 37.5665, lng: 126.9780 };
+  const DEFAULT_LOCATION = useMemo(() => ({ lat: 37.5665, lng: 126.9780 }), []);
 
   // 구글 지도 API 로드 확인
   useEffect(() => {
@@ -219,7 +219,7 @@ export function GoogleMap({
           title: '내 위치',
           icon: {
             url: 'http://maps.google.com/mapfiles/ms/icons/blue-dot.png',
-            scaledSize: new google.maps.Size(32, 32),
+            scaledSize: { width: 32, height: 32 } as google.maps.Size,
           },
           animation: google.maps.Animation?.DROP,
         });
@@ -253,7 +253,7 @@ export function GoogleMap({
           title: '내 위치',
           icon: {
             url: 'http://maps.google.com/mapfiles/ms/icons/blue-dot.png',
-            scaledSize: new google.maps.Size(32, 32),
+            scaledSize: { width: 32, height: 32 } as google.maps.Size,
           },
           animation: google.maps.Animation?.DROP,
         });

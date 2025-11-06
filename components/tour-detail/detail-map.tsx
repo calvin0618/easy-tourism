@@ -66,71 +66,6 @@ function convertKATECToWGS84(
   return converted;
 }
 
-/**
- * 주소를 좌표로 변환 (Google Geocoding API 사용)
- * @param address 주소 문자열
- * @returns WGS84 좌표 { lat, lng } 또는 null
- */
-async function geocodeAddress(address: string): Promise<{ lat: number; lng: number } | null> {
-  if (!address || !address.trim()) {
-    return null;
-  }
-
-  try {
-    if (typeof window === 'undefined' || !window.google || !window.google.maps) {
-      console.warn('[DetailMap] Google Maps API가 로드되지 않았습니다.');
-      return null;
-    }
-
-    const geocoder = new window.google.maps.Geocoder();
-    
-    return new Promise((resolve) => {
-      geocoder.geocode({ address }, (results, status) => {
-        if (status === 'OK' && results && results.length > 0) {
-          const location = results[0].geometry.location;
-          const geocoded = {
-            lat: location.lat(),
-            lng: location.lng(),
-          };
-          console.log('[DetailMap] 주소 기반 좌표 변환:', {
-            address,
-            geocoded,
-          });
-          resolve(geocoded);
-        } else {
-          console.warn('[DetailMap] 주소 기반 좌표 변환 실패:', status, address);
-          resolve(null);
-        }
-      });
-    });
-  } catch (error) {
-    console.error('[DetailMap] 주소 기반 좌표 변환 에러:', error);
-    return null;
-  }
-}
-
-/**
- * 두 좌표 간의 거리 계산 (미터 단위)
- * @param coord1 좌표 1
- * @param coord2 좌표 2
- * @returns 거리 (미터)
- */
-function calculateDistance(
-  coord1: { lat: number; lng: number },
-  coord2: { lat: number; lng: number }
-): number {
-  const R = 6371000; // 지구 반경 (미터)
-  const dLat = ((coord2.lat - coord1.lat) * Math.PI) / 180;
-  const dLng = ((coord2.lng - coord1.lng) * Math.PI) / 180;
-  const a =
-    Math.sin(dLat / 2) * Math.sin(dLat / 2) +
-    Math.cos((coord1.lat * Math.PI) / 180) *
-      Math.cos((coord2.lat * Math.PI) / 180) *
-      Math.sin(dLng / 2) *
-      Math.sin(dLng / 2);
-  const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
-  return R * c;
-}
 
 /**
  * 좌표를 클립보드에 복사
@@ -156,7 +91,7 @@ export function DetailMap({
   const [currentLocation, setCurrentLocation] = useState<{ lat: number; lng: number } | null>(null);
   
   // 서울시청 좌표 (기본값)
-  const DEFAULT_LOCATION = { lat: 37.5665, lng: 126.9780 };
+  const DEFAULT_LOCATION = useMemo(() => ({ lat: 37.5665, lng: 126.9780 }), []);
   
   // 최종 표시할 위치: 현재 위치 또는 서울시청
   const displayLocation = currentLocation || DEFAULT_LOCATION;
@@ -295,7 +230,7 @@ export function DetailMap({
         title: markerTitle,
         icon: {
           url: 'http://maps.google.com/mapfiles/ms/icons/blue-dot.png',
-          scaledSize: new google.maps.Size(32, 32),
+            scaledSize: { width: 32, height: 32 } as google.maps.Size,
         },
         animation: google.maps.Animation?.DROP,
         zIndex: 1000, // 다른 마커보다 위에 표시

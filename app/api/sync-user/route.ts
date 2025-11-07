@@ -10,19 +10,48 @@ import { getServiceRoleClient } from "@/lib/supabase/service-role";
  */
 export async function POST() {
   try {
+    console.group('[Sync User API] 사용자 동기화 시도');
+    
     // Clerk 인증 확인
     const { userId } = await auth();
 
     if (!userId) {
+      console.log('[Sync User API] 인증되지 않은 사용자');
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
+
+    console.log('[Sync User API] Clerk 사용자 ID:', userId);
 
     // Clerk에서 사용자 정보 가져오기
     const client = await clerkClient();
     const clerkUser = await client.users.getUser(userId);
 
     if (!clerkUser) {
+      console.error('[Sync User API] Clerk 사용자를 찾을 수 없음');
       return NextResponse.json({ error: "User not found" }, { status: 404 });
+    }
+
+    console.log('[Sync User API] Clerk 사용자 정보:', {
+      id: clerkUser.id,
+      name: clerkUser.fullName || clerkUser.username || 'Unknown',
+    });
+
+    // Supabase 환경 변수 확인
+    const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
+    const supabaseServiceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+
+    if (!supabaseUrl || !supabaseServiceRoleKey) {
+      console.error('[Sync User API] Supabase 환경 변수 누락:', {
+        hasUrl: !!supabaseUrl,
+        hasServiceRoleKey: !!supabaseServiceRoleKey,
+      });
+      return NextResponse.json(
+        { 
+          error: "Supabase configuration missing",
+          details: "NEXT_PUBLIC_SUPABASE_URL or SUPABASE_SERVICE_ROLE_KEY is not set"
+        },
+        { status: 500 }
+      );
     }
 
     // Supabase에 사용자 정보 동기화
@@ -47,21 +76,27 @@ export async function POST() {
       .single();
 
     if (error) {
-      console.error("Supabase sync error:", error);
+      console.error('[Sync User API] Supabase 동기화 오류:', error);
       return NextResponse.json(
         { error: "Failed to sync user", details: error.message },
         { status: 500 }
       );
     }
 
+    console.log('[Sync User API] 사용자 동기화 성공:', data);
+    console.groupEnd();
     return NextResponse.json({
       success: true,
       user: data,
     });
   } catch (error) {
-    console.error("Sync user error:", error);
+    console.error('[Sync User API] 예상치 못한 오류:', error);
+    const errorMessage = error instanceof Error ? error.message : 'Unknown error';
     return NextResponse.json(
-      { error: "Internal server error" },
+      { 
+        error: "Internal server error",
+        details: errorMessage
+      },
       { status: 500 }
     );
   }

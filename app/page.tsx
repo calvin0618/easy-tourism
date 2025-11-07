@@ -15,7 +15,7 @@
 
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, Suspense } from 'react';
 import dynamic from 'next/dynamic';
 import { useSearchParams } from 'next/navigation';
 import { TourList } from '@/components/tour-list';
@@ -35,7 +35,8 @@ const GoogleMap = dynamic(() => import('@/components/google-map').then((mod) => 
   ),
 });
 
-export default function HomePage() {
+// useSearchParams를 사용하는 컴포넌트 분리
+function HomePageContent() {
   const searchParams = useSearchParams();
   
   // 필터 상태 관리
@@ -160,6 +161,21 @@ export default function HomePage() {
         </div>
       </div>
     </div>
+  );
+}
+
+// Suspense로 감싼 메인 컴포넌트
+export default function HomePage() {
+  return (
+    <Suspense fallback={
+      <div className="min-h-screen flex items-center justify-center">
+        <div className="text-center">
+          <p className="text-muted-foreground">로딩 중...</p>
+        </div>
+      </div>
+    }>
+      <HomePageContent />
+    </Suspense>
   );
 }
 

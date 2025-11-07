@@ -364,27 +364,32 @@
 ## Phase 4: 북마크 기능 (`/bookmarks`) - 선택 사항
 
 ### 4.1 Supabase 설정
-- [ ] `supabase/migrations/YYYYMMDDHHmmss_create_bookmarks_table.sql` 생성
-  - [ ] `bookmarks` 테이블 생성
-    - [ ] `id`: UUID (Primary Key)
-    - [ ] `user_id`: UUID (Foreign Key → users.id)
-    - [ ] `content_id`: TEXT (관광지 contentId)
-    - [ ] `created_at`: TIMESTAMP
-  - [ ] 인덱스 생성 (`user_id`, `content_id`)
-  - [ ] RLS 비활성화 (개발 단계)
-  - [ ] 권한 부여 (anon, authenticated, service_role)
+- [x] `supabase/migrations/20251106172121_create_bookmarks_table.sql` 생성
+  - [x] `bookmarks` 테이블 생성
+    - [x] `id`: UUID (Primary Key)
+    - [x] `user_id`: UUID (Foreign Key → users.id, ON DELETE CASCADE)
+    - [x] `content_id`: TEXT (관광지 contentId)
+    - [x] `created_at`: TIMESTAMP WITH TIME ZONE
+    - [x] UNIQUE 제약조건 (user_id, content_id)
+  - [x] 인덱스 생성 (`user_id`, `content_id`, `created_at`)
+  - [x] RLS 비활성화 (개발 단계)
+  - [x] 권한 부여 (anon, authenticated, service_role)
 
-- [ ] 마이그레이션 적용
-  - [ ] Supabase CLI 또는 Supabase MCP로 마이그레이션 실행
-  - [ ] 테이블 생성 확인
+- [x] 마이그레이션 적용 가이드 작성
+  - [x] `docs/bookmark-migration-guide.md` 생성
+  - [x] Supabase 대시보드 적용 방법 안내
+  - [x] 테이블 생성 확인 SQL 쿼리 제공
+- [x] 마이그레이션 적용 (수동)
+  - [x] Supabase 대시보드에서 SQL Editor로 마이그레이션 실행
+  - [x] 테이블 생성 확인 (제공된 SQL 쿼리 사용)
 
 ### 4.2 북마크 API 함수
-- [ ] `lib/api/supabase-api.ts` 생성
-  - [ ] `addBookmark(userId, contentId)` - 북마크 추가
-  - [ ] `removeBookmark(userId, contentId)` - 북마크 삭제
-  - [ ] `getUserBookmarks(userId)` - 사용자 북마크 목록 조회
-  - [ ] `isBookmarked(userId, contentId)` - 북마크 여부 확인
-  - [ ] 에러 처리 및 로깅
+- [x] `lib/api/supabase-api.ts` 생성
+  - [x] `addBookmark(userId, contentId, supabase?)` - 북마크 추가
+  - [x] `removeBookmark(userId, contentId, supabase?)` - 북마크 삭제
+  - [x] `getUserBookmarks(userId, supabase?)` - 사용자 북마크 목록 조회
+  - [x] `isBookmarked(userId, contentId, supabase?)` - 북마크 여부 확인
+  - [x] 에러 처리 및 로깅
 
 ### 4.3 북마크 버튼 컴포넌트
 - [ ] `components/bookmarks/bookmark-button.tsx` 생성
@@ -546,4 +551,5 @@
 - Phase 3.3 지도 섹션 개선 (현재 위치만 표시, 목적지 마커 제거)
 - Phase 5.1 인증 및 사용자 경험 개선 (로그인/가입, 다크모드, 다국어 지원)
 - Phase 6.6 배포 준비 (Vercel 배포 타입 에러 수정)
+- Phase 4.1 북마크 기능 Supabase 설정 (북마크 테이블 마이그레이션 적용 완료)
 

@@ -12,18 +12,19 @@
 
 'use client';
 
-import { useState, useEffect, KeyboardEvent } from 'react';
+import { useState, useEffect, KeyboardEvent, Suspense } from 'react';
 import { useRouter, usePathname, useSearchParams } from 'next/navigation';
 import Link from 'next/link';
-import { SignedOut, SignInButton, SignUpButton, SignedIn, UserButton } from '@clerk/nextjs';
 import { Button } from '@/components/ui/button';
 import { Search } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { ThemeToggle } from '@/components/theme-toggle';
 import { LanguageSelector } from '@/components/language-selector';
 import { useI18n } from '@/components/providers/i18n-provider';
+import { ClerkAuthButtons } from '@/components/clerk-auth-buttons';
 
-export function Header() {
+// useSearchParams를 사용하는 컴포넌트 분리
+function HeaderContent() {
   const router = useRouter();
   const pathname = usePathname();
   const searchParams = useSearchParams();
@@ -120,30 +121,34 @@ export function Header() {
         <div className="flex items-center gap-2">
           <ThemeToggle />
           <LanguageSelector />
-          <SignedOut>
-            <SignInButton mode="modal">
-              <Button variant="ghost" size="sm">
-                {t.common.login}
-              </Button>
-            </SignInButton>
-            <SignUpButton mode="modal">
-              <Button size="sm">
-                {t.common.signup}
-              </Button>
-            </SignUpButton>
-          </SignedOut>
-          <SignedIn>
-            <UserButton
-              appearance={{
-                elements: {
-                  avatarBox: 'w-8 h-8',
-                },
-              }}
-            />
-          </SignedIn>
+          <ClerkAuthButtons />
         </div>
       </div>
     </header>
+  );
+}
+
+// Suspense로 감싼 메인 컴포넌트
+export function Header() {
+  return (
+    <Suspense fallback={
+      <header className="sticky top-0 z-50 w-full border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
+        <div className="container flex h-16 items-center justify-between gap-4 px-4">
+          <Link href="/" className="flex items-center gap-2">
+            <span className="text-2xl font-bold bg-gradient-to-r from-blue-600 to-teal-600 bg-clip-text text-transparent">
+              My Trip
+            </span>
+          </Link>
+          <div className="flex items-center gap-2">
+            <ThemeToggle />
+            <LanguageSelector />
+            <ClerkAuthButtons />
+          </div>
+        </div>
+      </header>
+    }>
+      <HeaderContent />
+    </Suspense>
   );
 }
 

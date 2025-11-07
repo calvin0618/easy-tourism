@@ -37,7 +37,7 @@ interface DetailMapProps {
  * KATEC 좌표계를 WGS84 좌표계로 변환
  * @param mapx 경도 (KATEC, 정수형)
  * @param mapy 위도 (KATEC, 정수형)
- * @returns WGS84 좌표 { lat, lng }
+ * @returns WGS84 좌표 { lat, lng } 또는 null
  */
 function convertKATECToWGS84(
   mapx: string | number,
@@ -53,17 +53,79 @@ function convertKATECToWGS84(
   }
 
   // KATEC 좌표를 10000000으로 나누어 WGS84로 변환
-  const converted = {
+  // 방법 1: mapx = 경도, mapy = 위도 (표준)
+  const converted1 = {
     lng: x / 10000000,
     lat: y / 10000000,
   };
 
-  console.log('[DetailMap] 좌표 변환:', {
-    original: { mapx: x, mapy: y },
-    converted,
-  });
+  // 방법 2: mapx = 위도, mapy = 경도 (반대)
+  const converted2 = {
+    lat: x / 10000000,
+    lng: y / 10000000,
+  };
 
-  return converted;
+  // 한국 영역 범위 (약간 넓게 설정)
+  // 위도: 33 ~ 39 (실제로는 33.1 ~ 38.6)
+  // 경도: 124 ~ 132 (실제로는 124.6 ~ 131.9)
+  const isValid1 = 
+    converted1.lat >= 33 && converted1.lat <= 39 &&
+    converted1.lng >= 124 && converted1.lng <= 132;
+
+  const isValid2 = 
+    converted2.lat >= 33 && converted2.lat <= 39 &&
+    converted2.lng >= 124 && converted2.lng <= 132;
+
+  // 두 방법 중 유효한 것을 선택
+  if (isValid1) {
+    console.log('[DetailMap] 좌표 변환 성공 (표준 방법):', {
+      original: { mapx: x, mapy: y },
+      converted: converted1,
+    });
+    return converted1;
+  }
+
+  if (isValid2) {
+    console.log('[DetailMap] 좌표 변환 성공 (반대 방법):', {
+      original: { mapx: x, mapy: y },
+      converted: converted2,
+      note: 'mapx와 mapy가 반대로 되어 있었습니다',
+    });
+    return converted2;
+  }
+
+  // 둘 다 유효하지 않으면 에러 로그 출력
+  // 좌표 값이 이미 변환된 값일 수도 있으므로 확인
+  const isAlreadyConverted = (x >= 33 && x <= 39 && y >= 124 && y <= 132) || 
+                             (y >= 33 && y <= 39 && x >= 124 && x <= 132);
+  
+  if (isAlreadyConverted) {
+    // 이미 변환된 값인 경우
+    const result = x >= 33 && x <= 39 ? { lat: x, lng: y } : { lat: y, lng: x };
+    console.log('[DetailMap] 좌표가 이미 변환된 값입니다:', {
+      original: { mapx: x, mapy: y },
+      converted: result,
+      note: '10000000으로 나누지 않고 그대로 사용',
+    });
+    return result;
+  }
+  
+  console.error('[DetailMap] 변환된 좌표가 한국 영역 밖입니다:', {
+    original: { mapx: x, mapy: y },
+    converted1: {
+      ...converted1,
+      isValid: isValid1,
+    },
+    converted2: {
+      ...converted2,
+      isValid: isValid2,
+    },
+    isAlreadyConverted,
+    reason: '두 방법 모두 한국 영역 밖의 좌표 (위도: 33-39, 경도: 124-132)',
+    suggestion: '좌표 값이 다른 형식이거나 잘못된 값일 수 있습니다',
+  });
+  
+  return null;
 }
 
 
@@ -87,14 +149,60 @@ export function DetailMap({
   const currentLocationMarkerRef = useRef<google.maps.Marker | null>(null);
   const allMarkersRef = useRef<google.maps.Marker[]>([]); // 모든 마커 추적
   const [isLoaded, setIsLoaded] = useState(false);
+  const [loadError, setLoadError] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
   const [currentLocation, setCurrentLocation] = useState<{ lat: number; lng: number } | null>(null);
   
   // 서울시청 좌표 (기본값)
   const DEFAULT_LOCATION = useMemo(() => ({ lat: 37.5665, lng: 126.9780 }), []);
-  
-  // 최종 표시할 위치: 현재 위치 또는 서울시청
-  const displayLocation = currentLocation || DEFAULT_LOCATION;
+
+  // 관광지 좌표 변환
+  const tourLocation = useMemo(() => {
+    // mapx, mapy가 유효한지 먼저 확인
+    if (!mapx || !mapy || mapx.trim() === '' || mapy.trim() === '' || mapx === '0' || mapy === '0') {
+      console.warn('[DetailMap] 관광지 좌표가 없거나 유효하지 않음:', { mapx, mapy, title });
+      return null;
+    }
+
+    // 좌표 값의 크기를 확인하여 이미 변환된 값인지 확인
+    const x = typeof mapx === 'string' ? parseFloat(mapx) : mapx;
+    const y = typeof mapy === 'string' ? parseFloat(mapy) : mapy;
+    
+    console.log('[DetailMap] 원본 좌표 값 확인:', {
+      mapx: { raw: mapx, parsed: x, type: typeof mapx },
+      mapy: { raw: mapy, parsed: y, type: typeof mapy },
+      title,
+      note: 'KATEC 좌표는 보통 10000000 이상의 큰 값입니다',
+    });
+
+    const converted = convertKATECToWGS84(mapx, mapy);
+    if (converted) {
+      console.log('[DetailMap] 관광지 좌표 변환 완료:', {
+        original: { mapx, mapy },
+        converted,
+        title,
+      });
+      return converted;
+    }
+    
+    // 변환 실패 시 더 자세한 정보 출력
+    console.error('[DetailMap] 관광지 좌표 변환 실패 - 상세 정보:', {
+      mapx: { raw: mapx, parsed: x, type: typeof mapx },
+      mapy: { raw: mapy, parsed: y, type: typeof mapy },
+      title,
+      converted1: {
+        lat: y / 10000000,
+        lng: x / 10000000,
+      },
+      converted2: {
+        lat: x / 10000000,
+        lng: y / 10000000,
+      },
+      note: '좌표 값이 이미 변환된 값이거나 다른 형식일 수 있습니다',
+    });
+    
+    return null;
+  }, [mapx, mapy, title]);
 
   // 구글 지도 API 로드 확인
   useEffect(() => {
@@ -102,6 +210,7 @@ export function DetailMap({
     if (typeof window !== 'undefined' && window.google && window.google.maps) {
       console.log('[DetailMap] 구글 지도 API 이미 로드됨');
       setIsLoaded(true);
+      setLoadError(null);
       return;
     }
 
@@ -113,6 +222,7 @@ export function DetailMap({
       if (typeof window !== 'undefined' && window.google && window.google.maps) {
         console.log('[DetailMap] 구글 지도 API 로드 완료');
         setIsLoaded(true);
+        setLoadError(null);
         if (timeoutId) {
           clearTimeout(timeoutId);
         }
@@ -120,13 +230,28 @@ export function DetailMap({
         retryCount++;
         timeoutId = setTimeout(checkGoogleMaps, 100);
       } else {
-        console.warn('[DetailMap] 구글 지도 API 로드 실패 (타임아웃)');
-        console.warn('[DetailMap] Google Maps API 키 확인 필요:', {
-          hasApiKey: !!process.env.NEXT_PUBLIC_GOOGLE_MAP_API_KEY,
-          googleExists: typeof window !== 'undefined' && !!window.google,
+        console.error('[DetailMap] 구글 지도 API 로드 실패 (타임아웃)');
+        console.error('[DetailMap] 디버그 정보:', {
+          hasWindow: typeof window !== 'undefined',
+          hasGoogle: typeof window !== 'undefined' && !!window.google,
+          hasGoogleMaps: typeof window !== 'undefined' && window.google && !!window.google.maps,
+          scriptExists: typeof document !== 'undefined' && !!document.querySelector('script[src*="maps.googleapis.com"]'),
         });
+        setLoadError('구글 지도 API를 로드할 수 없습니다. 환경 변수 NEXT_PUBLIC_GOOGLE_MAP_API_KEY를 확인하세요.');
+        setIsLoaded(false);
       }
     };
+
+    // 스크립트 태그가 있는지 먼저 확인
+    const scriptTag = typeof document !== 'undefined' 
+      ? document.querySelector('script[src*="maps.googleapis.com"]') 
+      : null;
+    
+    if (!scriptTag) {
+      console.warn('[DetailMap] 구글 지도 API 스크립트 태그를 찾을 수 없습니다.');
+      setLoadError('구글 지도 API 스크립트가 로드되지 않았습니다. 환경 변수 NEXT_PUBLIC_GOOGLE_MAP_API_KEY를 확인하세요.');
+      return;
+    }
 
     checkGoogleMaps();
 
@@ -138,12 +263,11 @@ export function DetailMap({
     };
   }, []);
 
-  // 현재 위치 가져오기
+  // 현재 위치 가져오기 (선택 사항)
   useEffect(() => {
     if (!isLoaded || typeof window === 'undefined' || !navigator.geolocation) {
-      // Geolocation을 지원하지 않으면 서울시청 좌표 사용
-      console.log('[DetailMap] Geolocation 미지원, 서울시청 좌표 사용');
-      setCurrentLocation(DEFAULT_LOCATION);
+      // Geolocation을 지원하지 않으면 현재 위치 없음 (관광지 위치만 표시)
+      console.log('[DetailMap] Geolocation 미지원, 현재 위치 없음');
       return;
     }
 
@@ -158,9 +282,9 @@ export function DetailMap({
         setCurrentLocation(location);
       },
       (error) => {
-        console.warn('[DetailMap] 현재 위치 가져오기 실패, 서울시청 좌표 사용:', error.message);
-        // 위치 권한이 거부되었거나 오류가 발생하면 서울시청 좌표 사용
-        setCurrentLocation(DEFAULT_LOCATION);
+        console.warn('[DetailMap] 현재 위치 가져오기 실패:', error.message);
+        // 위치 권한이 거부되었거나 오류가 발생하면 현재 위치 없음 (관광지 위치만 표시)
+        setCurrentLocation(null);
       },
       {
         enableHighAccuracy: true,
@@ -171,43 +295,37 @@ export function DetailMap({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isLoaded]);
 
-  // 지도 초기화 및 마커 표시 (현재 위치만 표시)
+  // 지도 초기화 및 마커 표시
   useEffect(() => {
     if (!isLoaded || !mapRef.current) return;
 
-    // 지도 초기화 (한 번만)
+    // 관광지 좌표가 없으면 지도를 표시하지 않음
+    if (!tourLocation) {
+      console.error('[DetailMap] 관광지 좌표가 없어 지도를 표시할 수 없습니다:', { mapx, mapy, title });
+      setLoadError('관광지 위치 정보가 없습니다.');
+      return;
+    }
+
+    // 지도 초기화 (관광지 위치로)
     if (!mapInstanceRef.current) {
+      console.log('[DetailMap] 지도 초기화 (관광지 위치로):', tourLocation);
       mapInstanceRef.current = new google.maps.Map(mapRef.current, {
-        center: displayLocation,
+        center: tourLocation,
         zoom: 15, // 상세페이지는 줌 레벨 15 (가까운 뷰)
         mapTypeControl: true,
         zoomControl: true,
         streetViewControl: true,
         fullscreenControl: true,
-        // Places API가 자동으로 마커를 추가하지 않도록 설정
         disableDefaultUI: false,
       });
-      
-      console.log('[DetailMap] 지도 초기화 완료:', {
-        center: displayLocation,
-        isCurrentLocation: !!currentLocation,
-        note: '목적지 마커는 생성하지 않음',
-      });
     } else {
-      // 지도가 이미 있으면 중심 좌표만 업데이트
-      mapInstanceRef.current.setCenter(displayLocation);
-    }
-    
-    // 지도에 이미 추가된 모든 마커 제거 (안전장치)
-    // Google Maps가 자동으로 추가한 마커가 있을 수 있으므로
-    // 지도 초기화 직후에 명시적으로 제거
-    if (mapInstanceRef.current) {
-      // 지도의 모든 오버레이를 제거하는 것은 직접적으로 불가능하지만,
-      // 우리가 생성한 마커만 추적하고 관리
-      console.log('[DetailMap] 지도 초기화 후 마커 상태 확인');
+      // 지도가 이미 있으면 관광지 위치로 이동
+      console.log('[DetailMap] 관광지 위치로 지도 중심 이동:', tourLocation);
+      mapInstanceRef.current.setCenter(tourLocation);
+      mapInstanceRef.current.setZoom(15);
     }
 
-    // 기존 마커 모두 제거 (명시적으로 모든 마커 제거)
+    // 기존 마커 모두 제거
     allMarkersRef.current.forEach((marker) => {
       if (marker) {
         marker.setMap(null);
@@ -220,56 +338,49 @@ export function DetailMap({
       currentLocationMarkerRef.current = null;
     }
 
-    // 현재 위치 마커만 생성 (목적지 마커는 절대 생성하지 않음)
-    if (mapInstanceRef.current) {
-      const markerTitle = currentLocation ? '내 위치' : '서울시청';
-      const marker = new google.maps.Marker({
-        position: displayLocation,
+    // 관광지 위치 마커 생성 (빨간색)
+    if (mapInstanceRef.current && tourLocation) {
+      const tourMarker = new google.maps.Marker({
+        position: tourLocation,
         map: mapInstanceRef.current,
-        title: markerTitle,
+        title: title,
         icon: {
-          url: 'http://maps.google.com/mapfiles/ms/icons/blue-dot.png',
-            scaledSize: { width: 32, height: 32 } as google.maps.Size,
+          url: 'http://maps.google.com/mapfiles/ms/icons/red-dot.png',
+          scaledSize: { width: 32, height: 32 } as google.maps.Size,
         },
         animation: google.maps.Animation?.DROP,
-        zIndex: 1000, // 다른 마커보다 위에 표시
+        zIndex: 1000,
       });
+      allMarkersRef.current.push(tourMarker);
       
-      currentLocationMarkerRef.current = marker;
-      allMarkersRef.current.push(marker); // 마커 추적 목록에 추가
-      
-      console.log('[DetailMap] 현재 위치 마커만 표시 (목적지 마커 없음):', {
-        location: displayLocation,
-        title: markerTitle,
-        isCurrentLocation: !!currentLocation,
-        totalMarkers: allMarkersRef.current.length,
-        note: '목적지 마커는 생성하지 않음',
+      console.log('[DetailMap] 관광지 마커 생성 완료:', {
+        title,
+        position: tourLocation,
       });
     }
 
-    // 지도 초기화 후 일정 시간 후 모든 마커 재확인 및 제거 (안전장치)
-    // Google Maps API가 자동으로 추가한 마커가 있을 수 있으므로
-    const checkInterval = setTimeout(() => {
-      if (mapInstanceRef.current) {
-        // 지도 DOM에서 마커 이미지 요소 찾기 및 제거 시도
-        const mapContainer = mapRef.current;
-        if (mapContainer) {
-          // Google Maps 마커는 일반적으로 img 태그로 표시됨
-          // 하지만 직접 DOM 조작은 권장되지 않음
-          // 대신 우리가 생성한 마커만 추적하고 관리
-          console.log('[DetailMap] 마커 재확인:', {
-            trackedMarkers: allMarkersRef.current.length,
-            currentLocationMarker: !!currentLocationMarkerRef.current,
-            note: '목적지 마커는 생성하지 않았으므로 표시되면 안 됨',
-          });
-        }
-      }
-    }, 1000); // 1초 후 확인
+    // 현재 위치 마커 생성 (파란색, 선택 사항)
+    if (currentLocation && mapInstanceRef.current) {
+      currentLocationMarkerRef.current = new google.maps.Marker({
+        position: currentLocation,
+        map: mapInstanceRef.current,
+        title: '내 위치',
+        icon: {
+          url: 'http://maps.google.com/mapfiles/ms/icons/blue-dot.png',
+          scaledSize: { width: 32, height: 32 } as google.maps.Size,
+        },
+        animation: google.maps.Animation?.DROP,
+        zIndex: 999,
+      });
+      allMarkersRef.current.push(currentLocationMarkerRef.current);
+      
+      console.log('[DetailMap] 현재 위치 마커 생성 완료:', {
+        position: currentLocation,
+      });
+    }
 
     // cleanup - 모든 마커 제거
     return () => {
-      clearTimeout(checkInterval);
-      
       allMarkersRef.current.forEach((marker) => {
         if (marker) {
           marker.setMap(null);
@@ -282,7 +393,7 @@ export function DetailMap({
         currentLocationMarkerRef.current = null;
       }
     };
-  }, [isLoaded, displayLocation, currentLocation]);
+  }, [isLoaded, tourLocation, currentLocation, title]);
 
   // 길찾기 버튼 클릭 (현재 위치 → 목적지)
   const handleDirections = async () => {
@@ -397,15 +508,18 @@ export function DetailMap({
     }
   };
 
-  // 좌표 복사
+  // 좌표 복사 (관광지 좌표 사용)
   const handleCopyCoordinates = async () => {
-    if (!displayLocation) return;
+    if (!tourLocation) {
+      toast.error('관광지 위치 정보가 없습니다');
+      return;
+    }
 
     try {
-      await copyCoordinatesToClipboard(displayLocation.lat, displayLocation.lng);
+      await copyCoordinatesToClipboard(tourLocation.lat, tourLocation.lng);
       setCopied(true);
       toast.success('좌표가 복사되었습니다');
-      console.log('[DetailMap] 좌표 복사:', displayLocation);
+      console.log('[DetailMap] 좌표 복사:', tourLocation);
       
       // 2초 후 복사 상태 초기화
       setTimeout(() => setCopied(false), 2000);
@@ -415,15 +529,23 @@ export function DetailMap({
     }
   };
 
-  // 좌표가 없으면 표시하지 않음
-  if (!displayLocation) {
-    return null;
+  // 관광지 좌표가 없으면 표시하지 않음
+  if (!tourLocation) {
+    return (
+      <Card className={className}>
+        <div className="p-6">
+          <div className="text-center text-muted-foreground">
+            <p>관광지 위치 정보가 없습니다.</p>
+          </div>
+        </div>
+      </Card>
+    );
   }
 
   console.log('[DetailMap] 표시 위치:', {
-    location: displayLocation,
-    isCurrentLocation: !!currentLocation,
-    title: currentLocation ? '내 위치' : '서울시청',
+    tourLocation,
+    currentLocation,
+    title,
   });
 
   return (
@@ -435,11 +557,11 @@ export function DetailMap({
             위치
           </h2>
           <div className="flex items-center gap-2">
-            {/* 좌표 정보 표시 */}
-            {displayLocation && (
+            {/* 좌표 정보 표시 (관광지 좌표) */}
+            {tourLocation && (
               <div className="flex items-center gap-2 text-sm text-muted-foreground">
                 <span className="hidden sm:inline">
-                  {displayLocation.lat.toFixed(6)}, {displayLocation.lng.toFixed(6)}
+                  {tourLocation.lat.toFixed(6)}, {tourLocation.lng.toFixed(6)}
                 </span>
                 <Button
                   variant="outline"
@@ -470,7 +592,14 @@ export function DetailMap({
           {!isLoaded && (
             <div className="absolute inset-0 flex items-center justify-center bg-gray-100 dark:bg-gray-800">
               <div className="text-center text-muted-foreground">
-                <p className="text-sm">지도를 불러오는 중...</p>
+                {loadError ? (
+                  <div className="space-y-2 px-4">
+                    <p className="text-sm font-medium text-red-600 dark:text-red-400">지도 로드 실패</p>
+                    <p className="text-xs">{loadError}</p>
+                  </div>
+                ) : (
+                  <p className="text-sm">지도를 불러오는 중...</p>
+                )}
               </div>
             </div>
           )}

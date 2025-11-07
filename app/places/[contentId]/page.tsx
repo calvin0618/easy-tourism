@@ -24,6 +24,7 @@ import { DetailMapWrapper } from '@/components/tour-detail/detail-map-wrapper';
 import { ShareButton } from '@/components/tour-detail/share-button';
 import { DetailIntro } from '@/components/tour-detail/detail-intro';
 import { DetailGallery } from '@/components/tour-detail/detail-gallery';
+import { BookmarkButton } from '@/components/bookmarks/bookmark-button';
 
 interface PageProps {
   params: Promise<{ contentId: string }>;
@@ -155,6 +156,7 @@ export default async function PlaceDetailPage({ params }: PageProps) {
             </Button>
           </Link>
           <div className="flex items-center gap-2">
+            <BookmarkButton contentId={contentId} />
             <ShareButton />
           </div>
         </div>

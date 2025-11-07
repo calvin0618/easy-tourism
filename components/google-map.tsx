@@ -36,20 +36,65 @@ interface GoogleMapProps {
  * KATEC 좌표계를 WGS84 좌표계로 변환
  * @param mapx 경도 (KATEC, 정수형)
  * @param mapy 위도 (KATEC, 정수형)
- * @returns WGS84 좌표 { lat, lng }
+ * @returns WGS84 좌표 { lat, lng } 또는 null
  */
 function convertKATECToWGS84(
   mapx: string | number,
   mapy: string | number
-): { lat: number; lng: number } {
+): { lat: number; lng: number } | null {
   const x = typeof mapx === 'string' ? parseFloat(mapx) : mapx;
   const y = typeof mapy === 'string' ? parseFloat(mapy) : mapy;
 
+  // 유효성 검사
+  if (isNaN(x) || isNaN(y) || x === 0 || y === 0) {
+    return null;
+  }
+
   // KATEC 좌표를 10000000으로 나누어 WGS84로 변환
-  return {
+  // 방법 1: mapx = 경도, mapy = 위도 (표준)
+  const converted1 = {
     lng: x / 10000000,
     lat: y / 10000000,
   };
+
+  // 방법 2: mapx = 위도, mapy = 경도 (반대)
+  const converted2 = {
+    lat: x / 10000000,
+    lng: y / 10000000,
+  };
+
+  // 한국 영역 범위 (약간 넓게 설정)
+  // 위도: 33 ~ 39 (실제로는 33.1 ~ 38.6)
+  // 경도: 124 ~ 132 (실제로는 124.6 ~ 131.9)
+  const isValid1 = 
+    converted1.lat >= 33 && converted1.lat <= 39 &&
+    converted1.lng >= 124 && converted1.lng <= 132;
+
+  const isValid2 = 
+    converted2.lat >= 33 && converted2.lat <= 39 &&
+    converted2.lng >= 124 && converted2.lng <= 132;
+
+  // 두 방법 중 유효한 것을 선택
+  if (isValid1) {
+    return converted1;
+  }
+
+  if (isValid2) {
+    return converted2;
+  }
+
+  // 둘 다 유효하지 않으면 에러 로그 출력
+  // 좌표 값이 이미 변환된 값일 수도 있으므로 확인
+  const isAlreadyConverted = (x >= 33 && x <= 39 && y >= 124 && y <= 132) || 
+                             (y >= 33 && y <= 39 && x >= 124 && x <= 132);
+  
+  if (isAlreadyConverted) {
+    // 이미 변환된 값인 경우
+    const result = x >= 33 && x <= 39 ? { lat: x, lng: y } : { lat: y, lng: x };
+    return result;
+  }
+  
+  return null;
 }
 
 /**
@@ -65,17 +110,13 @@ function getValidTours(tours: TourItem[]): Array<TourItem & { position: { lat: n
     })
     .map((tour) => {
       const position = convertKATECToWGS84(tour.mapx!, tour.mapy!);
-      // 변환된 좌표가 유효한 범위 내에 있는지 확인 (한국 영역)
-      const isValidPosition = 
-        position.lat >= 33 && position.lat <= 43 && // 한국 위도 범위
-        position.lng >= 124 && position.lng <= 132; // 한국 경도 범위
       
-      if (!isValidPosition) {
+      if (!position) {
         console.warn(`[GoogleMap] 유효하지 않은 좌표: ${tour.title}`, {
           mapx: tour.mapx,
           mapy: tour.mapy,
-          converted: position,
         });
+        return null;
       }
       
       return {
@@ -83,13 +124,7 @@ function getValidTours(tours: TourItem[]): Array<TourItem & { position: { lat: n
         position,
       };
     })
-    .filter((tour) => {
-      // 최종적으로 유효한 좌표를 가진 항목만 반환
-      const isValid = 
-        tour.position.lat >= 33 && tour.position.lat <= 43 &&
-        tour.position.lng >= 124 && tour.position.lng <= 132;
-      return isValid;
-    });
+    .filter((tour): tour is TourItem & { position: { lat: number; lng: number } } => tour !== null);
 }
 
 /**

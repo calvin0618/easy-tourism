@@ -244,12 +244,39 @@ export function TourList({
             );
             
             const introResults = await Promise.allSettled(introPromises);
-            const petFriendlyTours = introResults
+            
+            // chkpet 필드 값 확인을 위한 상세 로그
+            const fulfilledResults = introResults.filter(
+              (r): r is PromiseFulfilledResult<{ tour: TourItem; intro: any; chkpet: string }> => 
+                r.status === 'fulfilled'
+            );
+            
+            console.log('[TourList] TOUR API detailIntro 결과 샘플:', {
+              total: introResults.length,
+              fulfilled: fulfilledResults.length,
+              rejected: introResults.filter(r => r.status === 'rejected').length,
+              chkpetSamples: fulfilledResults
+                .filter(r => r.value.intro !== null)
+                .slice(0, 10)
+                .map(r => ({
+                  title: r.value.tour.title,
+                  contentid: normalizeContentId(r.value.tour.contentid),
+                  chkpet: r.value.chkpet,
+                  chkpetType: typeof r.value.chkpet,
+                  chkpetValue: String(r.value.chkpet),
+                  chkpetTrimmed: typeof r.value.chkpet === 'string' ? r.value.chkpet.trim() : 'N/A',
+                })),
+            });
+            
+            const petFriendlyTours = fulfilledResults
               .filter((result): result is PromiseFulfilledResult<{ tour: TourItem; intro: any; chkpet: string }> =>
-                result.status === 'fulfilled' &&
                 result.value.chkpet !== undefined &&
+                result.value.chkpet !== null &&
                 typeof result.value.chkpet === 'string' &&
-                (result.value.chkpet === '가능' || result.value.chkpet === 'Y')
+                (result.value.chkpet === '가능' || 
+                 result.value.chkpet === 'Y' || 
+                 result.value.chkpet.trim() === '가능' || 
+                 result.value.chkpet.trim() === 'Y')
               )
               .map(result => result.value.tour);
             

@@ -25,15 +25,55 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "My Trip - 한국 관광지 정보 서비스",
+  title: {
+    default: "My Trip - 한국 관광지 정보 서비스",
+    template: "%s | My Trip",
+  },
   description:
-    "한국관광공사 공공 API를 활용한 전국 관광지 정보 검색 및 조회 서비스",
-  keywords: ["관광지", "여행", "한국", "여행 정보", "관광 정보"],
+    "한국관광공사 공공 API를 활용한 전국 관광지 정보 검색 및 조회 서비스. 반려동물 동반 가능한 관광지 정보도 제공합니다.",
+  keywords: ["관광지", "여행", "한국", "여행 정보", "관광 정보", "반려동물 동반", "펫 프렌들리"],
   authors: [{ name: "My Trip" }],
+  creator: "My Trip",
+  publisher: "My Trip",
+  metadataBase: new URL(process.env.NEXT_PUBLIC_SITE_URL || 'https://my-trip.vercel.app'),
+  alternates: {
+    canonical: '/',
+  },
   openGraph: {
     title: "My Trip - 한국 관광지 정보 서비스",
     description: "한국관광공사 공공 API를 활용한 전국 관광지 정보 검색 및 조회 서비스",
     type: "website",
+    locale: "ko_KR",
+    siteName: "My Trip",
+    images: [
+      {
+        url: "/og-image.png",
+        width: 1200,
+        height: 630,
+        alt: "My Trip - 한국 관광지 정보 서비스",
+      },
+    ],
+  },
+  twitter: {
+    card: "summary_large_image",
+    title: "My Trip - 한국 관광지 정보 서비스",
+    description: "한국관광공사 공공 API를 활용한 전국 관광지 정보 검색 및 조회 서비스",
+    images: ["/og-image.png"],
+  },
+  robots: {
+    index: true,
+    follow: true,
+    googleBot: {
+      index: true,
+      follow: true,
+      'max-video-preview': -1,
+      'max-image-preview': 'large',
+      'max-snippet': -1,
+    },
+  },
+  verification: {
+    // Google Search Console 등록 시 사용
+    // google: 'your-google-verification-code',
   },
 };
 

@@ -16,12 +16,57 @@ import { useState, useEffect, KeyboardEvent, Suspense } from 'react';
 import { useRouter, usePathname, useSearchParams } from 'next/navigation';
 import Link from 'next/link';
 import { Button } from '@/components/ui/button';
-import { Search } from 'lucide-react';
+import { Search, Star, BarChart3 } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { ThemeToggle } from '@/components/theme-toggle';
 import { LanguageSelector } from '@/components/language-selector';
 import { useI18n } from '@/components/providers/i18n-provider';
 import { ClerkAuthButtons } from '@/components/clerk-auth-buttons';
+import { SignedIn } from '@clerk/nextjs';
+
+// Suspense fallback용 컴포넌트
+function HeaderFallback() {
+  const { t } = useI18n();
+  
+  return (
+    <header className="sticky top-0 z-50 w-full border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
+      <div className="container flex h-16 items-center justify-between gap-4 px-4">
+        <Link 
+          href="/" 
+          className="flex items-center gap-2"
+          onClick={(e) => {
+            // 페이지 새로고침하여 필터 초기화
+            e.preventDefault();
+            window.location.href = '/';
+          }}
+        >
+          <span className="text-2xl font-bold bg-gradient-to-r from-blue-600 to-teal-600 bg-clip-text text-transparent">
+            My Trip
+          </span>
+        </Link>
+        <div className="flex items-center gap-2">
+          <ThemeToggle />
+          <LanguageSelector />
+          <Link href="/stats">
+            <Button variant="ghost" size="sm" className="gap-2">
+              <BarChart3 className="w-4 h-4" />
+              <span className="hidden sm:inline">{t.header.stats}</span>
+            </Button>
+          </Link>
+          <SignedIn>
+            <Link href="/bookmarks">
+              <Button variant="ghost" size="sm" className="gap-2">
+                <Star className="w-4 h-4" />
+                <span className="hidden sm:inline">{t.header.bookmarks}</span>
+              </Button>
+            </Link>
+          </SignedIn>
+          <ClerkAuthButtons />
+        </div>
+      </div>
+    </header>
+  );
+}
 
 // useSearchParams를 사용하는 컴포넌트 분리
 function HeaderContent() {
@@ -67,7 +112,17 @@ function HeaderContent() {
     <header className="sticky top-0 z-50 w-full border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
       <div className="container flex h-16 items-center justify-between gap-4 px-4">
         {/* 로고 */}
-        <Link href="/" className="flex items-center gap-2">
+        <Link 
+          href="/" 
+          className="flex items-center gap-2"
+          onClick={(e) => {
+            // 이미 홈페이지에 있고 쿼리 파라미터가 없으면 페이지 새로고침하여 필터 초기화
+            if (pathname === '/' && !searchParams.toString()) {
+              e.preventDefault();
+              window.location.href = '/';
+            }
+          }}
+        >
           <span className="text-2xl font-bold bg-gradient-to-r from-blue-600 to-teal-600 bg-clip-text text-transparent">
             My Trip
           </span>
@@ -117,10 +172,26 @@ function HeaderContent() {
           <Search className="h-5 w-5" />
         </Button>
 
-        {/* 다크모드, 언어 선택, 로그인/회원가입 버튼 */}
+        {/* 다크모드, 언어 선택, 북마크 링크, 로그인/회원가입 버튼 */}
         <div className="flex items-center gap-2">
           <ThemeToggle />
           <LanguageSelector />
+          {/* 통계 페이지 링크 */}
+          <Link href="/stats">
+            <Button variant="ghost" size="sm" className="gap-2">
+              <BarChart3 className="w-4 h-4" />
+              <span className="hidden sm:inline">{t.header.stats}</span>
+            </Button>
+          </Link>
+          {/* 북마크 링크 (로그인한 사용자만 표시) */}
+          <SignedIn>
+            <Link href="/bookmarks">
+              <Button variant="ghost" size="sm" className="gap-2">
+                <Star className="w-4 h-4" />
+                <span className="hidden sm:inline">{t.header.bookmarks}</span>
+              </Button>
+            </Link>
+          </SignedIn>
           <ClerkAuthButtons />
         </div>
       </div>
@@ -131,22 +202,7 @@ function HeaderContent() {
 // Suspense로 감싼 메인 컴포넌트
 export function Header() {
   return (
-    <Suspense fallback={
-      <header className="sticky top-0 z-50 w-full border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
-        <div className="container flex h-16 items-center justify-between gap-4 px-4">
-          <Link href="/" className="flex items-center gap-2">
-            <span className="text-2xl font-bold bg-gradient-to-r from-blue-600 to-teal-600 bg-clip-text text-transparent">
-              My Trip
-            </span>
-          </Link>
-          <div className="flex items-center gap-2">
-            <ThemeToggle />
-            <LanguageSelector />
-            <ClerkAuthButtons />
-          </div>
-        </div>
-      </header>
-    }>
+    <Suspense fallback={<HeaderFallback />}>
       <HeaderContent />
     </Suspense>
   );

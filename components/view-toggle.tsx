@@ -10,6 +10,7 @@
 
 import { FileText, Map } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import { useI18n } from '@/components/providers/i18n-provider';
 import { cn } from '@/lib/utils';
 
 type ViewType = 'list' | 'map';
@@ -24,6 +25,8 @@ interface ViewToggleProps {
 }
 
 export function ViewToggle({ currentView, onViewChange, className }: ViewToggleProps) {
+  const { t } = useI18n();
+  
   return (
     <div
       className={cn(
@@ -41,7 +44,7 @@ export function ViewToggle({ currentView, onViewChange, className }: ViewToggleP
         )}
       >
         <FileText className="w-4 h-4" />
-        <span>목록</span>
+        <span>{t.viewToggle.list}</span>
       </Button>
       <Button
         variant={currentView === 'map' ? 'default' : 'ghost'}
@@ -53,7 +56,7 @@ export function ViewToggle({ currentView, onViewChange, className }: ViewToggleP
         )}
       >
         <Map className="w-4 h-4" />
-        <span>지도</span>
+        <span>{t.viewToggle.map}</span>
       </Button>
     </div>
   );

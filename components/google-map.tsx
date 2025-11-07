@@ -446,8 +446,9 @@ export function GoogleMap({
       markersRef.current.push(marker);
       infoWindowsRef.current.push(infoWindow);
       
+      const position = marker.getPosition();
       console.log(`[GoogleMap] 마커 생성 완료: ${tour.title}`, {
-        markerPosition: marker.getPosition()?.toJSON(),
+        markerPosition: position ? { lat: position.lat(), lng: position.lng() } : null,
         map: marker.getMap() ? '지도에 표시됨' : '지도에 표시 안됨',
       });
     });

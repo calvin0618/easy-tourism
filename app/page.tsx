@@ -21,29 +21,29 @@ import { useSearchParams } from 'next/navigation';
 import { TourList } from '@/components/tour-list';
 import { TourFilters, type SortOption } from '@/components/tour-filters';
 import { ViewToggle } from '@/components/view-toggle';
+import { useI18n } from '@/components/providers/i18n-provider';
 import type { ContentType, TourItem } from '@/lib/types/tour';
+import type { PetFilterOptions } from '@/components/pet-friendly/pet-filter';
 
 // 구글 지도 컴포넌트는 동적 import (SSR 비활성화)
+// GoogleMap 컴포넌트는 동적 import 내부에서 useI18n을 사용할 수 없으므로
+// loading 컴포넌트는 별도로 처리
 const GoogleMap = dynamic(() => import('@/components/google-map').then((mod) => ({ default: mod.GoogleMap })), {
   ssr: false,
-  loading: () => (
-    <div className="w-full h-full flex items-center justify-center bg-gray-100 dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700" style={{ minHeight: '400px' }}>
-      <div className="text-center text-muted-foreground">
-        <p className="text-sm">지도를 불러오는 중...</p>
-      </div>
-    </div>
-  ),
 });
 
 // useSearchParams를 사용하는 컴포넌트 분리
 function HomePageContent() {
   const searchParams = useSearchParams();
+  const { t } = useI18n();
   
   // 필터 상태 관리
   const [selectedAreaCode, setSelectedAreaCode] = useState<string | undefined>();
   const [selectedContentTypes, setSelectedContentTypes] = useState<ContentType[]>([]);
   // 정렬 상태 관리
   const [sortBy, setSortBy] = useState<SortOption>('O');
+  // 반려동물 필터 상태 관리
+  const [petFilterOptions, setPetFilterOptions] = useState<PetFilterOptions>({});
   // 검색어 상태 관리 (URL 쿼리 파라미터에서 초기값 가져오기)
   const [searchKeyword, setSearchKeyword] = useState<string | undefined>(
     searchParams.get('q') || undefined
@@ -56,10 +56,19 @@ function HomePageContent() {
   // 모바일 뷰 전환 상태
   const [currentView, setCurrentView] = useState<'list' | 'map'>('list');
 
-  // URL 쿼리 파라미터 변경 감지
+  // URL 쿼리 파라미터 변경 감지 및 필터 초기화
   useEffect(() => {
     const q = searchParams.get('q');
     setSearchKeyword(q || undefined);
+    
+    // 쿼리 파라미터가 없으면 모든 필터 초기화 (메인화면으로 돌아왔을 때)
+    if (!q && searchParams.toString() === '') {
+      setSelectedAreaCode(undefined);
+      setSelectedContentTypes([]);
+      setSortBy('O');
+      setPetFilterOptions({});
+      setSelectedTourId(undefined);
+    }
   }, [searchParams]);
 
   // 필터 초기화
@@ -69,6 +78,7 @@ function HomePageContent() {
     setSearchKeyword(undefined);
     setSelectedTourId(undefined);
     setSortBy('O');
+    setPetFilterOptions({});
   };
 
   // 관광지 데이터 로드 핸들러
@@ -81,10 +91,10 @@ function HomePageContent() {
       {/* Hero Section (선택 사항) */}
       <section className="container mx-auto px-4 py-8 text-center">
         <h1 className="text-4xl md:text-5xl font-bold mb-4 bg-gradient-to-r from-blue-600 to-teal-600 bg-clip-text text-transparent">
-          한국의 아름다운 관광지를 탐험하세요
+          {t.home.heroTitle}
         </h1>
         <p className="text-lg text-muted-foreground">
-          전국의 관광지 정보를 한 곳에서 검색하고 확인하세요
+          {t.home.heroDescription}
         </p>
       </section>
 
@@ -93,9 +103,11 @@ function HomePageContent() {
         selectedAreaCode={selectedAreaCode}
         selectedContentTypes={selectedContentTypes}
         sortBy={sortBy}
+        petFilterOptions={petFilterOptions}
         onAreaChange={setSelectedAreaCode}
         onContentTypeChange={setSelectedContentTypes}
         onSortChange={setSortBy}
+        onPetFilterChange={setPetFilterOptions}
         onReset={handleResetFilters}
       />
 
@@ -110,6 +122,7 @@ function HomePageContent() {
               contentTypes={selectedContentTypes}
               query={searchKeyword}
               sortBy={sortBy}
+              petFilterOptions={petFilterOptions}
               className="grid-cols-1"
               onToursLoad={handleToursLoad}
               onTourClick={setSelectedTourId}
@@ -118,11 +131,13 @@ function HomePageContent() {
 
           {/* 우측: 지도 영역 */}
           <div className="sticky top-24 h-[calc(100vh-12rem)]">
-            <GoogleMap
-              tours={tours}
-              selectedTourId={selectedTourId}
-              className="h-full"
-            />
+            <div className="w-full h-full flex items-center justify-center bg-gray-100 dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700">
+              <GoogleMap
+                tours={tours}
+                selectedTourId={selectedTourId}
+                className="h-full"
+              />
+            </div>
           </div>
         </div>
 
@@ -143,6 +158,7 @@ function HomePageContent() {
                 contentTypes={selectedContentTypes}
                 query={searchKeyword}
                 sortBy={sortBy}
+                petFilterOptions={petFilterOptions}
                 onToursLoad={handleToursLoad}
               />
             </div>
@@ -151,11 +167,13 @@ function HomePageContent() {
           {/* 지도 뷰 */}
           {currentView === 'map' && (
             <div className="mt-4" style={{ minHeight: '400px', height: 'calc(100vh - 12rem)' }}>
-              <GoogleMap
-                tours={tours}
-                selectedTourId={selectedTourId}
-                className="h-full"
-              />
+              <div className="w-full h-full flex items-center justify-center bg-gray-100 dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700">
+                <GoogleMap
+                  tours={tours}
+                  selectedTourId={selectedTourId}
+                  className="h-full"
+                />
+              </div>
             </div>
           )}
         </div>
@@ -164,16 +182,22 @@ function HomePageContent() {
   );
 }
 
+// Suspense fallback 컴포넌트
+function HomePageFallback() {
+  const { t } = useI18n();
+  return (
+    <div className="min-h-screen flex items-center justify-center">
+      <div className="text-center">
+        <p className="text-muted-foreground">{t.common.loading}</p>
+      </div>
+    </div>
+  );
+}
+
 // Suspense로 감싼 메인 컴포넌트
 export default function HomePage() {
   return (
-    <Suspense fallback={
-      <div className="min-h-screen flex items-center justify-center">
-        <div className="text-center">
-          <p className="text-muted-foreground">로딩 중...</p>
-        </div>
-      </div>
-    }>
+    <Suspense fallback={<HomePageFallback />}>
       <HomePageContent />
     </Suspense>
   );

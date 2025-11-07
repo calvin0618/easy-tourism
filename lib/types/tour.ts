@@ -6,6 +6,8 @@
  * PRD.md의 5. 데이터 구조 섹션을 참고하여 작성되었습니다.
  */
 
+import type { PetFriendlyInfo } from './pet-friendly';
+
 /**
  * 관광 타입 ID
  * Content Type ID (관광 타입)
@@ -74,6 +76,8 @@ export interface TourItem {
   cat3?: string;
   /** 수정일 */
   modifiedtime: string;
+  /** 반려동물 친화 정보 (선택 사항) */
+  petFriendlyInfo?: PetFriendlyInfo;
 }
 
 /**
@@ -107,6 +111,8 @@ export interface TourDetail {
   mapx: string;
   /** 위도 (KATEC 좌표계) */
   mapy: string;
+  /** 반려동물 친화 정보 (선택 사항) */
+  petFriendlyInfo?: PetFriendlyInfo;
 }
 
 /**

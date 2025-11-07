@@ -10,9 +10,11 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { MapPin, Filter, X, ArrowUpDown } from 'lucide-react';
+import { MapPin, Filter, X, ArrowUpDown, Dog } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
+import { Checkbox } from '@/components/ui/checkbox';
+import { Label } from '@/components/ui/label';
 import {
   Select,
   SelectContent,
@@ -23,6 +25,8 @@ import {
 import { getAreaCodes } from '@/lib/api/tour-api';
 import type { AreaCodeInfo, ContentType } from '@/lib/types/tour';
 import { CONTENT_TYPE_LABELS } from '@/lib/types/tour';
+import type { PetFilterOptions } from '@/components/pet-friendly/pet-filter';
+import { useI18n } from '@/components/providers/i18n-provider';
 import { cn } from '@/lib/utils';
 
 /** 정렬 옵션 타입 */
@@ -35,12 +39,16 @@ interface TourFiltersProps {
   selectedContentTypes: ContentType[];
   /** 선택된 정렬 옵션 */
   sortBy?: SortOption;
+  /** 반려동물 필터 옵션 */
+  petFilterOptions?: PetFilterOptions;
   /** 필터 변경 핸들러 */
   onAreaChange: (areaCode?: string) => void;
   /** 관광 타입 변경 핸들러 */
   onContentTypeChange: (types: ContentType[]) => void;
   /** 정렬 변경 핸들러 */
   onSortChange?: (sort: SortOption) => void;
+  /** 반려동물 필터 변경 핸들러 */
+  onPetFilterChange?: (options: PetFilterOptions) => void;
   /** 필터 초기화 핸들러 */
   onReset: () => void;
   /** 추가 클래스명 */
@@ -56,12 +64,15 @@ export function TourFilters({
   selectedAreaCode,
   selectedContentTypes,
   sortBy = 'O',
+  petFilterOptions,
   onAreaChange,
   onContentTypeChange,
   onSortChange,
+  onPetFilterChange,
   onReset,
   className,
 }: TourFiltersProps) {
+  const { t } = useI18n();
   const [areaCodes, setAreaCodes] = useState<AreaCodeInfo[]>([]);
   const [loadingAreas, setLoadingAreas] = useState(true);
 
@@ -104,7 +115,10 @@ export function TourFilters({
     }
   };
 
-  const hasActiveFilters = selectedAreaCode || selectedContentTypes.length > 0;
+  const hasActiveFilters =
+    selectedAreaCode ||
+    selectedContentTypes.length > 0 ||
+    petFilterOptions?.petFriendly === true;
 
   return (
     <div
@@ -125,10 +139,10 @@ export function TourFilters({
               disabled={loadingAreas}
             >
               <SelectTrigger className="w-[180px]">
-                <SelectValue placeholder="지역 선택" />
+                <SelectValue placeholder={t.filter.areaSelect} />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="all">전체</SelectItem>
+                <SelectItem value="all">{t.filter.all}</SelectItem>
                 {areaCodes.map((area) => (
                   <SelectItem key={area.code} value={area.code}>
                     {area.name}
@@ -148,7 +162,7 @@ export function TourFilters({
                 onClick={toggleAllTypes}
                 className="h-8"
               >
-                전체
+                {t.filter.all}
               </Button>
               {CONTENT_TYPES.map((type) => {
                 const isSelected = selectedContentTypes.includes(type);
@@ -176,13 +190,38 @@ export function TourFilters({
                 onValueChange={(value) => onSortChange(value as SortOption)}
               >
                 <SelectTrigger className="w-[140px]">
-                  <SelectValue placeholder="정렬" />
+                  <SelectValue placeholder={t.filter.sortPlaceholder} />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="O">이름순</SelectItem>
-                  <SelectItem value="Q">최신순</SelectItem>
+                  <SelectItem value="O">{t.filter.sortByName}</SelectItem>
+                  <SelectItem value="Q">{t.filter.sortByNewest}</SelectItem>
                 </SelectContent>
               </Select>
+            </div>
+          )}
+
+          {/* 반려동물 필터 (데스크톱) */}
+          {onPetFilterChange && (
+            <div className="flex items-center gap-2">
+              <Dog className="w-4 h-4 text-muted-foreground" />
+              <div className="flex items-center gap-2">
+                <Checkbox
+                  id="pet-friendly-desktop"
+                  checked={petFilterOptions?.petFriendly === true}
+                  onCheckedChange={(checked) => {
+                    onPetFilterChange({
+                      ...petFilterOptions,
+                      petFriendly: checked ? true : undefined,
+                    });
+                  }}
+                />
+                <Label
+                  htmlFor="pet-friendly-desktop"
+                  className="text-sm font-normal cursor-pointer"
+                >
+                  {t.filter.petFriendly}
+                </Label>
+              </div>
             </div>
           )}
 
@@ -195,7 +234,7 @@ export function TourFilters({
               className="h-8"
             >
               <X className="w-4 h-4 mr-1" />
-              초기화
+              {t.filter.reset}
             </Button>
           )}
         </div>
@@ -212,10 +251,10 @@ export function TourFilters({
                 disabled={loadingAreas}
               >
                 <SelectTrigger className="w-[120px] flex-shrink-0">
-                  <SelectValue placeholder="지역" />
+                  <SelectValue placeholder={t.filter.areaSelectMobile} />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="all">전체</SelectItem>
+                  <SelectItem value="all">{t.filter.all}</SelectItem>
                   {areaCodes.map((area) => (
                     <SelectItem key={area.code} value={area.code}>
                       {area.name}
@@ -234,7 +273,7 @@ export function TourFilters({
                 onClick={toggleAllTypes}
                 className="h-8 flex-shrink-0 whitespace-nowrap"
               >
-                전체
+                {t.filter.all}
               </Button>
               {CONTENT_TYPES.map((type) => {
                 const isSelected = selectedContentTypes.includes(type);
@@ -261,13 +300,38 @@ export function TourFilters({
                   onValueChange={(value) => onSortChange(value as SortOption)}
                 >
                   <SelectTrigger className="w-[100px] flex-shrink-0">
-                    <SelectValue placeholder="정렬" />
+                    <SelectValue placeholder={t.filter.sortPlaceholder} />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="O">이름순</SelectItem>
-                    <SelectItem value="Q">최신순</SelectItem>
+                    <SelectItem value="O">{t.filter.sortByName}</SelectItem>
+                    <SelectItem value="Q">{t.filter.sortByNewest}</SelectItem>
                   </SelectContent>
                 </Select>
+              </div>
+            )}
+
+            {/* 반려동물 필터 (모바일) */}
+            {onPetFilterChange && (
+              <div className="flex items-center gap-2 flex-shrink-0">
+                <Dog className="w-4 h-4 text-muted-foreground flex-shrink-0" />
+                <div className="flex items-center gap-2">
+                  <Checkbox
+                    id="pet-friendly-mobile"
+                    checked={petFilterOptions?.petFriendly === true}
+                    onCheckedChange={(checked) => {
+                      onPetFilterChange({
+                        ...petFilterOptions,
+                        petFriendly: checked ? true : undefined,
+                      });
+                    }}
+                  />
+                  <Label
+                    htmlFor="pet-friendly-mobile"
+                    className="text-sm font-normal cursor-pointer whitespace-nowrap"
+                  >
+                    {t.filter.petFriendly}
+                  </Label>
+                </div>
               </div>
             )}
 
@@ -309,6 +373,22 @@ export function TourFilters({
                   </button>
                 </Badge>
               ))}
+              {petFilterOptions?.petFriendly && (
+                <Badge variant="secondary" className="gap-1">
+                  {t.filter.petFriendly}
+                  <button
+                    onClick={() => {
+                      onPetFilterChange?.({
+                        ...petFilterOptions,
+                        petFriendly: undefined,
+                      });
+                    }}
+                    className="ml-1 hover:bg-destructive/20 rounded-full p-0.5"
+                  >
+                    <X className="w-3 h-3" />
+                  </button>
+                </Badge>
+              )}
             </div>
           )}
         </div>

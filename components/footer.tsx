@@ -6,9 +6,13 @@
  * Design.md의 푸터 디자인을 참고하여 작성되었습니다.
  */
 
+'use client';
+
 import Link from 'next/link';
+import { useI18n } from '@/components/providers/i18n-provider';
 
 export function Footer() {
+  const { t } = useI18n();
   const currentYear = new Date().getFullYear();
 
   return (
@@ -41,7 +45,7 @@ export function Footer() {
           {/* API 제공 표기 */}
           <div className="text-center md:text-right">
             <p className="text-xs text-muted-foreground">
-              한국관광공사 공공 API 제공
+              {t.footer.apiProvider}
             </p>
             <p className="text-xs text-muted-foreground mt-1">
               <a
@@ -50,7 +54,7 @@ export function Footer() {
                 rel="noopener noreferrer"
                 className="hover:text-foreground transition-colors underline"
               >
-                데이터 제공
+                {t.footer.dataProvider}
               </a>
             </p>
           </div>

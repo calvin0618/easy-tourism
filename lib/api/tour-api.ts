@@ -231,6 +231,57 @@ async function fetchApiViaRoute<T>(
 }
 
 /**
+ * 재시도 가능한 HTTP 상태 코드
+ */
+const RETRYABLE_STATUS_CODES = [503, 502, 504, 429];
+
+/**
+ * 재시도 로직이 포함된 fetch 함수
+ * Exponential Backoff 방식으로 재시도
+ * 
+ * @param url - 요청 URL
+ * @param options - fetch 옵션
+ * @param maxRetries - 최대 재시도 횟수 (기본값: 3)
+ * @param retryDelay - 초기 재시도 지연 시간 (밀리초, 기본값: 1000)
+ * @returns Response 객체
+ */
+async function fetchWithRetry(
+  url: string,
+  options: RequestInit,
+  maxRetries: number = 3,
+  retryDelay: number = 1000
+): Promise<Response> {
+  let lastError: Error | null = null;
+  
+  for (let attempt = 0; attempt <= maxRetries; attempt++) {
+    try {
+      const response = await fetch(url, options);
+      
+      // 재시도 가능한 에러인 경우
+      if (!response.ok && RETRYABLE_STATUS_CODES.includes(response.status)) {
+        if (attempt < maxRetries) {
+          const delay = retryDelay * Math.pow(2, attempt); // Exponential backoff: 1초, 2초, 4초
+          console.warn(`[Tour API] ${response.status} 에러 발생, ${delay}ms 후 재시도 (${attempt + 1}/${maxRetries})`);
+          await new Promise(resolve => setTimeout(resolve, delay));
+          continue;
+        }
+      }
+      
+      return response;
+    } catch (error) {
+      lastError = error instanceof Error ? error : new Error(String(error));
+      if (attempt < maxRetries) {
+        const delay = retryDelay * Math.pow(2, attempt);
+        console.warn(`[Tour API] 네트워크 에러 발생, ${delay}ms 후 재시도 (${attempt + 1}/${maxRetries})`);
+        await new Promise(resolve => setTimeout(resolve, delay));
+      }
+    }
+  }
+  
+  throw lastError || new Error('API 요청 실패');
+}
+
+/**
  * 서버 사이드: 직접 API 호출
  */
 async function fetchApiDirect<T>(
@@ -254,7 +305,8 @@ async function fetchApiDirect<T>(
   console.log(`[Tour API] 서버 요청: ${endpoint}`, { params });
 
   try {
-    const response = await fetch(url, {
+    // fetchWithRetry 사용하여 503 등 일시적 에러에 대해 자동 재시도
+    const response = await fetchWithRetry(url, {
       method: 'GET',
       headers: {
         'Content-Type': 'application/json',
@@ -270,6 +322,22 @@ async function fetchApiDirect<T>(
     }
 
     const data: any = await response.json();
+
+    // 🔍 원본 API 응답의 contentid 형식 확인 (디버깅용)
+    if (endpoint === '/areaBasedList2' || endpoint === '/searchKeyword2') {
+      const items = data.response?.body?.items?.item;
+      if (items) {
+        const firstItem = Array.isArray(items) ? items[0] : items;
+        if (firstItem && firstItem.contentid !== undefined) {
+          console.log('[Tour API] 원본 응답 contentid 타입 확인:', {
+            endpoint,
+            contentid: firstItem.contentid,
+            contentidType: typeof firstItem.contentid,
+            contentidValue: String(firstItem.contentid),
+          });
+        }
+      }
+    }
 
     // 응답 구조 확인
     if (!data) {

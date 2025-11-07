@@ -17,6 +17,9 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Card } from '@/components/ui/card';
 import { getDetailCommon, getDetailIntro, getDetailImage } from '@/lib/api/tour-api';
+import { getPetFriendlyInfoServer } from '@/lib/api/pet-friendly-server';
+import { PetInfoCard } from '@/components/pet-friendly/pet-info-card';
+import { PetInfoSubmitButton } from '@/components/pet-friendly/pet-info-submit-button';
 import { CONTENT_TYPE_LABELS } from '@/lib/types/tour';
 import type { Metadata } from 'next';
 import { AddressCopyButton } from '@/components/tour-detail/address-copy-button';
@@ -72,17 +75,21 @@ export default async function PlaceDetailPage({ params }: PageProps) {
   let detail;
   let intro;
   let images;
+  let petFriendlyInfo;
   
   try {
-    // 기본 정보, 운영 정보, 이미지 목록을 병렬로 로드
-    [detail, intro, images] = await Promise.allSettled([
+    // 기본 정보, 운영 정보, 이미지 목록, 반려동물 정보를 병렬로 로드
+    [detail, intro, images, petFriendlyInfo] = await Promise.allSettled([
       getDetailCommon(contentId),
       // 운영 정보는 contentTypeId가 필요하므로 detail 로드 후에 호출
       Promise.resolve(null),
       getDetailImage(contentId),
+      // 반려동물 정보 조회
+      getPetFriendlyInfoServer(contentId).catch(() => ({ success: false, data: undefined })),
     ]).then((results) => {
       const detailResult = results[0];
       const imageResult = results[2];
+      const petResult = results[3];
       
       if (detailResult.status === 'rejected') {
         throw detailResult.reason;
@@ -93,10 +100,16 @@ export default async function PlaceDetailPage({ params }: PageProps) {
       // 운영 정보는 contentTypeId가 필요하므로 detail 로드 후에 호출
       const introPromise = getDetailIntro(contentId, detailData.contenttypeid).catch(() => null);
       
+      // 반려동물 정보 처리
+      const petInfo = petResult.status === 'fulfilled' && petResult.value.success
+        ? petResult.value.data
+        : undefined;
+      
       return Promise.all([
         Promise.resolve(detailData),
         introPromise,
         imageResult.status === 'fulfilled' ? Promise.resolve(imageResult.value) : Promise.resolve([]),
+        Promise.resolve(petInfo),
       ]);
     });
   } catch (error) {
@@ -255,6 +268,30 @@ export default async function PlaceDetailPage({ params }: PageProps) {
 
         {/* 운영 정보 섹션 */}
         {intro && <DetailIntro intro={intro} className="mb-6" />}
+
+        {/* 반려동물 정보 섹션 */}
+        <div className="mb-6">
+          {petFriendlyInfo ? (
+            <div className="space-y-4">
+              <PetInfoCard info={petFriendlyInfo} />
+              <div className="flex justify-end">
+              <PetInfoSubmitButton
+                contentId={contentId}
+                existingInfo={petFriendlyInfo}
+              />
+              </div>
+            </div>
+          ) : (
+            <div className="border rounded-lg p-6 text-center space-y-4">
+              <p className="text-muted-foreground">
+                이 관광지의 반려동물 동반 정보가 아직 등록되지 않았습니다.
+              </p>
+              <PetInfoSubmitButton
+                contentId={contentId}
+              />
+            </div>
+          )}
+        </div>
 
         {/* 이미지 갤러리 섹션 */}
         {allImages.length > 0 && (

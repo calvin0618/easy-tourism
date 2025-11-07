@@ -15,6 +15,7 @@ import Image from 'next/image';
 import { MapPin } from 'lucide-react';
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
+import { PetBadge } from '@/components/pet-friendly/pet-badge';
 import type { TourItem } from '@/lib/types/tour';
 import { CONTENT_TYPE_LABELS } from '@/lib/types/tour';
 import { cn } from '@/lib/utils';
@@ -97,16 +98,26 @@ export function TourCard({ tour, className, onCardClick }: TourCardProps) {
         </div>
 
         <CardContent className="p-4">
-          {/* 관광 타입 뱃지 */}
-          <div className="mb-2">
+          {/* 관광 타입 뱃지 및 반려동물 뱃지 */}
+          <div className="mb-2 flex items-center gap-2 flex-wrap">
             <Badge variant="secondary" className="text-xs">
               {contentTypeLabel}
             </Badge>
+            {/* 반려동물 뱃지 (반려동물 동반 가능한 경우에만 표시) */}
+            {tour.petFriendlyInfo && tour.petFriendlyInfo.is_pet_allowed && (
+              <PetBadge info={tour.petFriendlyInfo} size="sm" showTooltip />
+            )}
           </div>
 
           {/* 관광지명 */}
           <h3 className="text-lg font-semibold mb-2 line-clamp-2 group-hover:text-blue-600 dark:group-hover:text-blue-400 transition-colors">
             {tour.title}
+            {/* 반려동물 동반 가능한 경우 강조 표시 (검색 결과 하이라이트) */}
+            {tour.petFriendlyInfo && tour.petFriendlyInfo.is_pet_allowed && (
+              <span className="ml-2 text-xs text-green-600 dark:text-green-400 font-normal">
+                🐕 반려동물 가능
+              </span>
+            )}
           </h3>
 
           {/* 주소 */}

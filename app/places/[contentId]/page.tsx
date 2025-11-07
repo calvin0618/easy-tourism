@@ -44,20 +44,27 @@ export async function generateMetadata({
   try {
     const detail = await getDetailCommon(contentId);
 
+    const description = detail.overview
+      ? detail.overview.substring(0, 100) + '...'
+      : `${detail.title} 관광지 정보`;
+
     return {
       title: `${detail.title} - My Trip`,
-      description: detail.overview
-        ? detail.overview.substring(0, 100) + '...'
-        : `${detail.title} 관광지 정보`,
+      description,
       openGraph: {
         title: detail.title,
-        description: detail.overview
-          ? detail.overview.substring(0, 100) + '...'
-          : `${detail.title} 관광지 정보`,
+        description,
         images: detail.firstimage
           ? [{ url: detail.firstimage, width: 1200, height: 630 }]
           : [],
         type: 'website',
+        url: `https://mytrip.example.com/places/${contentId}`, // 실제 도메인으로 변경 필요
+      },
+      twitter: {
+        card: 'summary_large_image',
+        title: detail.title,
+        description,
+        images: detail.firstimage ? [detail.firstimage] : [],
       },
     };
   } catch {
@@ -202,16 +209,16 @@ export default async function PlaceDetailPage({ params }: PageProps) {
         </div>
 
         {/* 기본 정보 섹션 */}
-        <Card className="p-6 mb-6">
-          <h2 className="text-xl font-semibold mb-4">기본 정보</h2>
+        <Card className="p-6 mb-6" role="region" aria-labelledby="basic-info-heading">
+          <h2 id="basic-info-heading" className="text-xl font-semibold mb-4">기본 정보</h2>
           <div className="space-y-4">
             {/* 주소 */}
             {detail.addr1 && (
-              <div className="flex items-start gap-2">
-                <MapPin className="w-5 h-5 text-muted-foreground mt-0.5 flex-shrink-0" />
+              <div className="flex items-start gap-2" role="group" aria-label="주소 정보">
+                <MapPin className="w-5 h-5 text-muted-foreground mt-0.5 flex-shrink-0" aria-hidden="true" />
                 <div className="flex-1">
                   <p className="text-sm text-muted-foreground mb-1">주소</p>
-                  <p className="text-base">{fullAddress}</p>
+                  <p className="text-base" aria-label={`주소: ${fullAddress}`}>{fullAddress}</p>
                 </div>
                 <AddressCopyButton address={fullAddress} />
               </div>

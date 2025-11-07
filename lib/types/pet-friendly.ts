@@ -116,7 +116,15 @@ export function formatPetPolicy(info: PetFriendlyInfo): string {
   }
 
   if (info.pet_size_limit) {
-    parts.push(`크기 제한: ${info.pet_size_limit}`);
+    // 영문 키를 한글 라벨로 변환
+    const sizeLabels: Record<string, string> = {
+      'small': '소형',
+      'medium': '중형',
+      'large': '대형',
+      'unlimited': '제한없음',
+    };
+    const sizeLabel = sizeLabels[info.pet_size_limit] || info.pet_size_limit;
+    parts.push(`크기 제한: ${sizeLabel}`);
   }
 
   if (parts.length === 0) {

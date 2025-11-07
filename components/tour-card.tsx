@@ -27,6 +27,10 @@ interface TourCardProps {
   className?: string;
   /** 카드 클릭 핸들러 (선택 사항, 지도 이동용) */
   onCardClick?: (tourId: string) => void;
+  /** 카드 호버 핸들러 (선택 사항, 마커 강조용) */
+  onCardHover?: (tourId: string | undefined) => void;
+  /** 선택된 관광지 ID (마커 클릭 시 리스트 항목 강조용) */
+  selectedTourId?: string;
 }
 
 /**
@@ -45,7 +49,7 @@ function getFullAddress(tour: TourItem): string {
   return addr2 ? `${addr} ${addr2}` : addr;
 }
 
-export function TourCard({ tour, className, onCardClick }: TourCardProps) {
+export function TourCard({ tour, className, onCardClick, onCardHover, selectedTourId }: TourCardProps) {
   const imageUrl = tour.firstimage || tour.firstimage2;
   const hasImage = isValidImageUrl(imageUrl);
   const [imageError, setImageError] = useState(false);
@@ -68,16 +72,29 @@ export function TourCard({ tour, className, onCardClick }: TourCardProps) {
     }
   };
 
+  const isSelected = tour.contentid === selectedTourId;
+
   return (
-    <Link href={`/places/${tour.contentid}`} onClick={handleClick}>
+    <Link 
+      href={`/places/${tour.contentid}`} 
+      onClick={handleClick}
+      aria-label={`${tour.title} 상세 정보 보기`}
+      aria-describedby={`tour-${tour.contentid}-description`}
+    >
       <Card
         className={cn(
           'group cursor-pointer transition-all duration-300',
           'hover:shadow-xl hover:scale-[1.02]',
           'border border-gray-200 dark:border-gray-700',
+          isSelected && 'ring-2 ring-blue-500 ring-offset-2',
           'overflow-hidden',
+          'focus-within:ring-2 focus-within:ring-blue-500 focus-within:ring-offset-2',
           className
         )}
+        onMouseEnter={() => onCardHover?.(tour.contentid)}
+        onMouseLeave={() => onCardHover?.(undefined)}
+        role="article"
+        aria-labelledby={`tour-${tour.contentid}-title`}
       >
         {/* 썸네일 이미지 */}
         <div className="relative w-full h-48 md:h-56 overflow-hidden bg-gray-100 dark:bg-gray-800">
@@ -99,8 +116,8 @@ export function TourCard({ tour, className, onCardClick }: TourCardProps) {
 
         <CardContent className="p-4">
           {/* 관광 타입 뱃지 및 반려동물 뱃지 */}
-          <div className="mb-2 flex items-center gap-2 flex-wrap">
-            <Badge variant="secondary" className="text-xs">
+          <div className="mb-2 flex items-center gap-2 flex-wrap" role="group" aria-label="관광지 분류">
+            <Badge variant="secondary" className="text-xs" aria-label={`관광 타입: ${contentTypeLabel}`}>
               {contentTypeLabel}
             </Badge>
             {/* 반려동물 뱃지 (반려동물 동반 가능한 경우에만 표시) */}
@@ -110,7 +127,10 @@ export function TourCard({ tour, className, onCardClick }: TourCardProps) {
           </div>
 
           {/* 관광지명 */}
-          <h3 className="text-lg font-semibold mb-2 line-clamp-2 group-hover:text-blue-600 dark:group-hover:text-blue-400 transition-colors">
+          <h3 
+            id={`tour-${tour.contentid}-title`}
+            className="text-lg font-semibold mb-2 line-clamp-2 group-hover:text-blue-600 dark:group-hover:text-blue-400 transition-colors"
+          >
             {tour.title}
             {/* 반려동물 동반 가능한 경우 강조 표시 (검색 결과 하이라이트) */}
             {tour.petFriendlyInfo && tour.petFriendlyInfo.is_pet_allowed && (

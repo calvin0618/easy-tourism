@@ -16,7 +16,7 @@
 
 import { useEffect, useRef, useState, useMemo } from 'react';
 import { useRouter } from 'next/navigation';
-import type { TourItem } from '@/lib/types/tour';
+import type { TourItem, ContentType } from '@/lib/types/tour';
 import { CONTENT_TYPE_LABELS } from '@/lib/types/tour';
 
 interface GoogleMapProps {
@@ -28,6 +28,10 @@ interface GoogleMapProps {
   zoom?: number;
   /** 선택된 관광지 ID (해당 마커로 이동) */
   selectedTourId?: string;
+  /** 호버된 관광지 ID (리스트 항목 호버 시 마커 강조) */
+  hoveredTourId?: string;
+  /** 마커 클릭 핸들러 (리스트 항목 강조용) */
+  onMarkerClick?: (tourId: string) => void;
   /** 추가 클래스명 */
   className?: string;
 }
@@ -179,11 +183,30 @@ function calculateBounds(
   return { center, zoom };
 }
 
+/**
+ * 관광 타입별 마커 아이콘 색상 매핑
+ */
+function getMarkerIconUrl(contentTypeId: ContentType): string {
+  const iconMap: Record<ContentType, string> = {
+    '12': 'http://maps.google.com/mapfiles/ms/icons/red-dot.png',      // 관광지 - 빨간색
+    '14': 'http://maps.google.com/mapfiles/ms/icons/blue-dot.png',     // 문화시설 - 파란색
+    '15': 'http://maps.google.com/mapfiles/ms/icons/green-dot.png',    // 축제/행사 - 초록색
+    '25': 'http://maps.google.com/mapfiles/ms/icons/yellow-dot.png',   // 여행코스 - 노란색
+    '28': 'http://maps.google.com/mapfiles/ms/icons/orange-dot.png',   // 레포츠 - 주황색
+    '32': 'http://maps.google.com/mapfiles/ms/icons/purple-dot.png',   // 숙박 - 보라색
+    '38': 'http://maps.google.com/mapfiles/ms/icons/pink-dot.png',     // 쇼핑 - 분홍색
+    '39': 'http://maps.google.com/mapfiles/ms/icons/ltblue-dot.png',   // 음식점 - 하늘색
+  };
+  return iconMap[contentTypeId] || 'http://maps.google.com/mapfiles/ms/icons/red-dot.png';
+}
+
 export function GoogleMap({
   tours,
   center,
   zoom,
   selectedTourId,
+  hoveredTourId,
+  onMarkerClick,
   className,
 }: GoogleMapProps) {
   const mapRef = useRef<HTMLDivElement>(null);
@@ -417,15 +440,23 @@ export function GoogleMap({
       });
       // 선택된 관광지인 경우 애니메이션 추가
       const isSelected = tour.contentid === selectedTourId;
+      // 호버된 관광지인 경우 강조 (크기 증가)
+      const isHovered = tour.contentid === hoveredTourId;
+      // 관광 타입별 마커 색상 구분
+      const markerIconUrl = getMarkerIconUrl(tour.contenttypeid);
       const marker = new google.maps.Marker({
         position: tour.position,
         map: mapInstanceRef.current,
         title: tour.title,
         animation: isSelected ? (google.maps.Animation?.BOUNCE ?? 1) : undefined,
         icon: {
-          url: 'http://maps.google.com/mapfiles/ms/icons/red-dot.png',
-          scaledSize: { width: 32, height: 32 } as google.maps.Size,
+          url: markerIconUrl,
+          scaledSize: { 
+            width: isHovered ? 40 : 32, 
+            height: isHovered ? 40 : 32 
+          } as google.maps.Size,
         },
+        zIndex: isHovered ? 1000 : (isSelected ? 999 : undefined),
       });
 
       bounds_instance.extend(tour.position);
@@ -465,7 +496,7 @@ export function GoogleMap({
         content: infoWindowContent,
       });
 
-      // 마커 클릭 시 인포윈도우 열기
+      // 마커 클릭 시 인포윈도우 열기 및 리스트 항목 강조
       marker.addListener('click', () => {
         // 다른 인포윈도우 닫기
         infoWindowsRef.current.forEach((iw) => iw.close());
@@ -475,6 +506,10 @@ export function GoogleMap({
             map: mapInstanceRef.current,
             anchor: marker as unknown as google.maps.MVCObject,
           });
+        }
+        // 마커 클릭 시 리스트 항목 강조 (콜백 호출)
+        if (onMarkerClick) {
+          onMarkerClick(tour.contentid);
         }
       });
 
@@ -591,7 +626,7 @@ export function GoogleMap({
       }
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [isLoaded, tours, selectedTourId, center, zoom, router]);
+  }, [isLoaded, tours, selectedTourId, hoveredTourId, center, zoom, router, onMarkerClick]);
 
   // 지도가 로드되지 않았을 때 표시할 내용
   if (!isLoaded) {

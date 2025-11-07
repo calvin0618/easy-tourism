@@ -69,6 +69,70 @@ export function normalizeContentId(contentId: string | number): string {
 }
 
 /**
+ * Supabase에서 조회한 반려동물 정보를 타입에 맞게 변환하는 함수
+ * - pet_fee: DECIMAL 타입이 문자열로 반환되므로 number로 변환
+ * - pet_size_limit: 한글 값이 있을 경우 영문 키로 변환 시도
+ * 
+ * @param rawData - Supabase에서 조회한 원본 데이터
+ * @returns 변환된 PetFriendlyInfo 데이터
+ */
+function transformPetFriendlyData(rawData: any): PetFriendlyInfo {
+  // pet_fee 변환: 문자열이면 숫자로 변환
+  let petFee: number | undefined = undefined;
+  if (rawData.pet_fee !== null && rawData.pet_fee !== undefined) {
+    if (typeof rawData.pet_fee === 'string') {
+      const parsed = parseFloat(rawData.pet_fee);
+      petFee = isNaN(parsed) ? undefined : parsed;
+    } else if (typeof rawData.pet_fee === 'number') {
+      petFee = rawData.pet_fee;
+    }
+  }
+
+  // pet_size_limit 변환: 한글 값이 있으면 영문 키로 변환 시도
+  let petSizeLimit: string | undefined = rawData.pet_size_limit;
+  if (petSizeLimit) {
+    // 이미 영문 키인 경우 그대로 사용
+    if (['small', 'medium', 'large', 'unlimited'].includes(petSizeLimit)) {
+      // 이미 영문 키이므로 그대로 사용
+    } else {
+      // 한글 값이 있으면 영문 키로 매핑
+      const sizeMapping: Record<string, string> = {
+        '소형': 'small',
+        '소형견': 'small',
+        '중형': 'medium',
+        '중형견': 'medium',
+        '대형': 'large',
+        '대형견': 'large',
+        '제한없음': 'unlimited',
+        '제한 없음': 'unlimited',
+        '제한없': 'unlimited',
+      };
+      
+      // 한글 값이 포함되어 있으면 영문 키로 변환
+      const lowerValue = petSizeLimit.toLowerCase();
+      let mapped = false;
+      for (const [key, value] of Object.entries(sizeMapping)) {
+        if (lowerValue.includes(key.toLowerCase()) || lowerValue === value) {
+          petSizeLimit = value;
+          mapped = true;
+          break;
+        }
+      }
+      // 매핑되지 않은 경우 원본 유지 (하위 호환성)
+      if (!mapped) {
+        petSizeLimit = rawData.pet_size_limit;
+      }
+    }
+  }
+
+  return {
+    ...rawData,
+    pet_fee: petFee,
+    pet_size_limit: petSizeLimit,
+  } as PetFriendlyInfo;
+}
+
+/**
  * 반려동물 정보 조회
  *
  * @param contentId - 관광지 contentId (TEXT)
@@ -157,9 +221,12 @@ export async function getPetFriendlyInfo(
       return { success: true, data: undefined };
     }
 
+    // 데이터 변환 (pet_fee, pet_size_limit 등)
+    const transformedData = transformPetFriendlyData(data);
+
     console.log('반려동물 정보 조회 성공');
     console.groupEnd();
-    return { success: true, data: data as PetFriendlyInfo };
+    return { success: true, data: transformedData };
   } catch (error) {
     console.error('반려동물 정보 조회 중 예상치 못한 오류:', error);
     return { success: false, error: '예상치 못한 오류가 발생했습니다.' };
@@ -247,19 +314,25 @@ export async function getPetFriendlyTours(
       '개'
     );
     
+    // 데이터 변환 (pet_fee, pet_size_limit 등)
+    const transformedData = data.map(item => transformPetFriendlyData(item));
+    
     // 디버깅: 실제 조회된 데이터의 content_id 확인
-    if (data.length > 0) {
+    if (transformedData.length > 0) {
       console.log('[반려동물 API] 조회된 content_id 목록:', 
-        data.slice(0, 10).map(item => ({
+        transformedData.slice(0, 10).map(item => ({
           content_id: item.content_id,
           content_id_type: typeof item.content_id,
           is_pet_allowed: item.is_pet_allowed,
+          pet_fee: item.pet_fee,
+          pet_fee_type: typeof item.pet_fee,
+          pet_size_limit: item.pet_size_limit,
         }))
       );
     }
     
     console.groupEnd();
-    return { success: true, data: data as PetFriendlyInfo[] };
+    return { success: true, data: transformedData };
   } catch (error) {
     // 예상치 못한 에러도 빈 배열로 처리
     console.warn(
@@ -336,9 +409,12 @@ export async function getAllPetFriendlyInfo(
       return { success: true, data: [] };
     }
 
-    console.log('[반려동물 API] 모든 반려동물 정보 조회 성공:', data.length, '개');
+    // 데이터 변환 (pet_fee, pet_size_limit 등)
+    const transformedData = data.map(item => transformPetFriendlyData(item));
+
+    console.log('[반려동물 API] 모든 반려동물 정보 조회 성공:', transformedData.length, '개');
     console.groupEnd();
-    return { success: true, data: data as PetFriendlyInfo[] };
+    return { success: true, data: transformedData };
   } catch (error) {
     console.warn('[반려동물 API] 모든 반려동물 정보 조회 중 예상치 못한 오류:', error);
     return { success: true, data: [] };
@@ -414,9 +490,12 @@ export async function searchPetFriendlyTours(
       };
     }
 
-    console.log('검색 성공:', data?.length || 0, '개');
+    // 데이터 변환 (pet_fee, pet_size_limit 등)
+    const transformedData = (data || []).map(item => transformPetFriendlyData(item));
+
+    console.log('검색 성공:', transformedData.length, '개');
     console.groupEnd();
-    return { success: true, data: (data || []) as PetFriendlyInfo[] };
+    return { success: true, data: transformedData };
   } catch (error) {
     console.error(
       '반려동물 동반 가능 관광지 검색 중 예상치 못한 오류:',
@@ -504,9 +583,12 @@ export async function addPetFriendlyInfo(
       };
     }
 
+    // 데이터 변환 (pet_fee, pet_size_limit 등)
+    const transformedData = transformPetFriendlyData(insertedData);
+
     console.log('반려동물 정보 추가 성공');
     console.groupEnd();
-    return { success: true, data: insertedData as PetFriendlyInfo };
+    return { success: true, data: transformedData };
   } catch (error) {
     console.error('반려동물 정보 추가 중 예상치 못한 오류:', error);
     return { success: false, error: '예상치 못한 오류가 발생했습니다.' };
@@ -608,9 +690,12 @@ export async function updatePetFriendlyInfo(
       };
     }
 
+    // 데이터 변환 (pet_fee, pet_size_limit 등)
+    const transformedData = transformPetFriendlyData(updatedData);
+
     console.log('반려동물 정보 수정 성공');
     console.groupEnd();
-    return { success: true, data: updatedData as PetFriendlyInfo };
+    return { success: true, data: transformedData };
   } catch (error) {
     console.error('반려동물 정보 수정 중 예상치 못한 오류:', error);
     return { success: false, error: '예상치 못한 오류가 발생했습니다.' };

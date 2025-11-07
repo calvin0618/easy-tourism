@@ -26,6 +26,72 @@ import { useI18n } from '@/components/providers/i18n-provider';
 import { cn } from '@/lib/utils';
 import type { SortOption } from '@/components/tour-filters';
 
+/**
+ * chkpet 값을 정규화하여 반려동물 동반 가능 여부를 판단하는 함수
+ * 
+ * @param chkpet - TOUR API의 chkpet 필드 값 (string | null | undefined)
+ * @returns 반려동물 동반 가능 여부 (true: 가능, false: 불가능, null: 정보 없음)
+ * 
+ * @example
+ * isPetFriendlyByChkpet('가능') => true
+ * isPetFriendlyByChkpet('Y') => true
+ * isPetFriendlyByChkpet('불가') => false
+ * isPetFriendlyByChkpet(null) => null
+ */
+function isPetFriendlyByChkpet(chkpet: string | null | undefined): boolean | null {
+  // null, undefined, 빈 문자열 처리
+  if (!chkpet || typeof chkpet !== 'string') {
+    return null; // 정보 없음
+  }
+
+  // 공백 제거 및 소문자 변환
+  const normalized = chkpet.trim().toLowerCase();
+
+  // 긍정적 값 (반려동물 동반 가능)
+  const positiveValues = [
+    '가능',
+    'y',
+    'yes',
+    'true',
+    '1',
+    'o', // 'O' (대문자)
+    'ok',
+    '허용',
+    '가능함',
+    '동반가능',
+    '동반 가능',
+  ];
+
+  // 부정적 값 (반려동물 동반 불가능)
+  const negativeValues = [
+    '불가',
+    '불가능',
+    'n',
+    'no',
+    'false',
+    '0',
+    'x',
+    '불가함',
+    '동반불가',
+    '동반 불가',
+    '금지',
+    '제한',
+  ];
+
+  // 정규화된 값이 긍정적 값에 포함되는지 확인
+  if (positiveValues.some(val => normalized === val || normalized.includes(val))) {
+    return true;
+  }
+
+  // 정규화된 값이 부정적 값에 포함되는지 확인
+  if (negativeValues.some(val => normalized === val || normalized.includes(val))) {
+    return false;
+  }
+
+  // 매칭되지 않은 경우 null 반환 (정보 없음)
+  return null;
+}
+
 interface TourListProps {
   /** 초기 지역코드 (선택 사항) */
   areaCode?: string;
@@ -43,6 +109,10 @@ interface TourListProps {
   onToursLoad?: (tours: TourItem[]) => void;
   /** 관광지 카드 클릭 핸들러 (지도 이동용) */
   onTourClick?: (tourId: string) => void;
+  /** 관광지 카드 호버 핸들러 (마커 강조용) */
+  onTourHover?: (tourId: string | undefined) => void;
+  /** 선택된 관광지 ID (마커 클릭 시 리스트 항목 강조용) */
+  selectedTourId?: string;
 }
 
 /**
@@ -71,6 +141,8 @@ export function TourList({
   className,
   onToursLoad,
   onTourClick,
+  onTourHover,
+  selectedTourId,
 }: TourListProps) {
   const { t } = useI18n();
   const [tours, setTours] = useState<TourItem[]>([]);
@@ -182,6 +254,11 @@ export function TourList({
         console.group('[TourList] 반려동물 정보 조회');
         console.log('[TourList] 필터링 전 관광지 개수:', filteredTours.length);
         console.log('[TourList] 원본 관광지 개수:', result.items.length);
+        console.log('[TourList] 반려동물 필터 활성화 여부:', {
+          petFilterOptions_petFriendly: petFilterOptions?.petFriendly,
+          shouldApplyPetFilter,
+          willApplyFilter: petFilterOptions?.petFriendly === true || shouldApplyPetFilter,
+        });
         
         // 모든 반려동물 정보 조회 (뱃지 표시용, is_pet_allowed 값과 무관)
         const allPetFriendlyResult = await getAllPetFriendlyInfo(supabase, {
@@ -204,6 +281,15 @@ export function TourList({
             ...tour,
             petFriendlyInfo: petInfoMap.get(tourContentId),
           };
+        });
+
+        // 필터 조건 확인 로깅
+        console.log('[TourList] 반려동물 필터 조건 확인:', {
+          petFilterOptions_petFriendly: petFilterOptions?.petFriendly,
+          shouldApplyPetFilter,
+          isPetRelatedSearch,
+          query,
+          petFilterOptions_full: petFilterOptions,
         });
 
         // 반려동물 필터가 활성화된 경우에만 필터링 적용
@@ -247,42 +333,75 @@ export function TourList({
             
             // chkpet 필드 값 확인을 위한 상세 로그
             const fulfilledResults = introResults.filter(
-              (r): r is PromiseFulfilledResult<{ tour: TourItem; intro: any; chkpet: string }> => 
+              (r): r is PromiseFulfilledResult<{ tour: TourItem; intro: any; chkpet: string | null | undefined }> => 
                 r.status === 'fulfilled'
             );
             
-            console.log('[TourList] TOUR API detailIntro 결과 샘플:', {
+            // chkpet 값 분포 통계 계산
+            const chkpetStats = {
+              total: fulfilledResults.length,
+              withIntro: fulfilledResults.filter(r => r.value.intro !== null).length,
+              petFriendly: 0,
+              notPetFriendly: 0,
+              unknown: 0,
+              nullOrUndefined: 0,
+            };
+            
+            const chkpetSamples: Array<{
+              title: string;
+              contentid: string;
+              chkpet: string | null | undefined;
+              isPetFriendly: boolean | null;
+            }> = [];
+            
+            fulfilledResults.forEach((result) => {
+              if (result.value.intro === null) {
+                chkpetStats.nullOrUndefined++;
+                return;
+              }
+              
+              const petFriendlyResult = isPetFriendlyByChkpet(result.value.chkpet);
+              
+              if (petFriendlyResult === true) {
+                chkpetStats.petFriendly++;
+              } else if (petFriendlyResult === false) {
+                chkpetStats.notPetFriendly++;
+              } else {
+                chkpetStats.unknown++;
+              }
+              
+              // 샘플 수집 (최대 15개)
+              if (chkpetSamples.length < 15) {
+                chkpetSamples.push({
+                  title: result.value.tour.title,
+                  contentid: normalizeContentId(result.value.tour.contentid),
+                  chkpet: result.value.chkpet,
+                  isPetFriendly: petFriendlyResult,
+                });
+              }
+            });
+            
+            console.log('[TourList] TOUR API detailIntro 결과:', {
               total: introResults.length,
               fulfilled: fulfilledResults.length,
               rejected: introResults.filter(r => r.status === 'rejected').length,
-              chkpetSamples: fulfilledResults
-                .filter(r => r.value.intro !== null)
-                .slice(0, 10)
-                .map(r => ({
-                  title: r.value.tour.title,
-                  contentid: normalizeContentId(r.value.tour.contentid),
-                  chkpet: r.value.chkpet,
-                  chkpetType: typeof r.value.chkpet,
-                  chkpetValue: String(r.value.chkpet),
-                  chkpetTrimmed: typeof r.value.chkpet === 'string' ? r.value.chkpet.trim() : 'N/A',
-                })),
+              chkpetStats,
+              chkpetSamples,
             });
             
+            // 개선된 필터링 로직: isPetFriendlyByChkpet 함수 사용
             const petFriendlyTours = fulfilledResults
-              .filter((result): result is PromiseFulfilledResult<{ tour: TourItem; intro: any; chkpet: string }> =>
-                result.value.chkpet !== undefined &&
-                result.value.chkpet !== null &&
-                typeof result.value.chkpet === 'string' &&
-                (result.value.chkpet === '가능' || 
-                 result.value.chkpet === 'Y' || 
-                 result.value.chkpet.trim() === '가능' || 
-                 result.value.chkpet.trim() === 'Y')
-              )
+              .filter((result): result is PromiseFulfilledResult<{ tour: TourItem; intro: any; chkpet: string | null | undefined }> => {
+                if (result.value.intro === null) return false;
+                const petFriendlyResult = isPetFriendlyByChkpet(result.value.chkpet);
+                return petFriendlyResult === true; // true인 경우만 필터링
+              })
               .map(result => result.value.tour);
             
             console.log('[TourList] TOUR API chkpet 필터링 결과:', {
               확인한관광지수: toursToCheck.length,
               반려동물동반가능수: petFriendlyTours.length,
+              필터링전개수: filteredTours.length,
               샘플: petFriendlyTours.slice(0, 5).map(t => ({
                 contentid: normalizeContentId(t.contentid),
                 title: t.title,
@@ -300,9 +419,12 @@ export function TourList({
             });
             
             console.log('[TourList] TOUR API 기반 필터링 완료:', {
+              필터링전개수: toursToCheck.length,
               필터링후개수: filteredTours.length,
+              제외된관광지수: toursToCheck.length - filteredTours.length,
             });
           } else {
+            console.log('[TourList] Supabase에 반려동물 정보가 있습니다. Supabase 데이터로 필터링합니다.');
             // 반려동물 동반 가능한 관광지의 contentId 목록
             // content_id를 문자열로 변환하여 비교 (타입 일치 보장)
             // TOUR API의 contentid 형식에 맞추기 위해 정규화
@@ -314,9 +436,11 @@ export function TourList({
 
                   // 추가 필터 조건 (크기, 마리 수)
                   if (petFilterOptions.petSize && info.pet_size_limit) {
-                    const sizeMatch = info.pet_size_limit
-                      .toLowerCase()
-                      .includes(petFilterOptions.petSize.toLowerCase());
+                    // pet_size_limit는 영문 키로 변환되어 있음 (small, medium, large, unlimited)
+                    // 또는 'unlimited'인 경우 모든 크기 허용
+                    const sizeMatch = 
+                      info.pet_size_limit === petFilterOptions.petSize ||
+                      info.pet_size_limit === 'unlimited';
                     if (!sizeMatch) return false;
                   }
 
@@ -424,6 +548,8 @@ export function TourList({
               필터링후개수: filteredTours.length,
             });
           }
+        } else {
+          console.log('[TourList] 반려동물 필터가 비활성화되어 있습니다. 필터링을 건너뜁니다.');
         }
         console.groupEnd();
 
@@ -668,6 +794,8 @@ export function TourList({
               key={tour.contentid}
               tour={tour}
               onCardClick={onTourClick}
+              onCardHover={onTourHover}
+              selectedTourId={selectedTourId}
             />
           ))}
         </div>

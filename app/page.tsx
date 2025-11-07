@@ -17,7 +17,7 @@
 
 import { useState, useEffect, Suspense } from 'react';
 import dynamic from 'next/dynamic';
-import { useSearchParams } from 'next/navigation';
+import { useSearchParams, useRouter } from 'next/navigation';
 import { TourList } from '@/components/tour-list';
 import { TourFilters, type SortOption } from '@/components/tour-filters';
 import { ViewToggle } from '@/components/view-toggle';
@@ -35,6 +35,7 @@ const GoogleMap = dynamic(() => import('@/components/google-map').then((mod) => 
 // useSearchParams를 사용하는 컴포넌트 분리
 function HomePageContent() {
   const searchParams = useSearchParams();
+  const router = useRouter();
   const { t } = useI18n();
   
   // 필터 상태 관리
@@ -53,16 +54,32 @@ function HomePageContent() {
   const [tours, setTours] = useState<TourItem[]>([]);
   // 선택된 관광지 ID (리스트 클릭 시 지도 이동용)
   const [selectedTourId, setSelectedTourId] = useState<string | undefined>();
+  // 호버된 관광지 ID (리스트 항목 호버 시 마커 강조용)
+  const [hoveredTourId, setHoveredTourId] = useState<string | undefined>();
   // 모바일 뷰 전환 상태
   const [currentView, setCurrentView] = useState<'list' | 'map'>('list');
 
   // URL 쿼리 파라미터 변경 감지 및 필터 초기화
   useEffect(() => {
     const q = searchParams.get('q');
+    const area = searchParams.get('area');
+    const types = searchParams.get('types');
+    const sort = searchParams.get('sort') as SortOption | null;
+    
     setSearchKeyword(q || undefined);
     
+    // URL 파라미터에서 필터 상태 복원
+    if (area) setSelectedAreaCode(area);
+    if (types) {
+      const typeArray = types.split(',').filter(Boolean);
+      setSelectedContentTypes(typeArray as ContentType[]);
+    }
+    if (sort && (sort === 'O' || sort === 'Q')) {
+      setSortBy(sort);
+    }
+    
     // 쿼리 파라미터가 없으면 모든 필터 초기화 (메인화면으로 돌아왔을 때)
-    if (!q && searchParams.toString() === '') {
+    if (!q && !area && !types && !sort && searchParams.toString() === '') {
       setSelectedAreaCode(undefined);
       setSelectedContentTypes([]);
       setSortBy('O');
@@ -70,6 +87,60 @@ function HomePageContent() {
       setSelectedTourId(undefined);
     }
   }, [searchParams]);
+
+  // URL 파라미터 업데이트 함수
+  const updateURLParams = (updates: {
+    area?: string | undefined;
+    types?: ContentType[] | undefined;
+    sort?: SortOption;
+    q?: string | undefined;
+  }) => {
+    const params = new URLSearchParams();
+    
+    if (updates.q) params.set('q', updates.q);
+    if (updates.area) params.set('area', updates.area);
+    if (updates.types && updates.types.length > 0) {
+      params.set('types', updates.types.join(','));
+    }
+    if (updates.sort && updates.sort !== 'O') {
+      params.set('sort', updates.sort);
+    }
+    
+    const queryString = params.toString();
+    const newUrl = queryString ? `/?${queryString}` : '/';
+    router.push(newUrl, { scroll: false });
+  };
+
+  // 필터 변경 핸들러 (URL 파라미터 업데이트 포함)
+  const handleAreaChange = (areaCode?: string) => {
+    setSelectedAreaCode(areaCode);
+    updateURLParams({
+      area: areaCode,
+      types: selectedContentTypes,
+      sort: sortBy,
+      q: searchKeyword,
+    });
+  };
+
+  const handleContentTypeChange = (types: ContentType[]) => {
+    setSelectedContentTypes(types);
+    updateURLParams({
+      area: selectedAreaCode,
+      types: types,
+      sort: sortBy,
+      q: searchKeyword,
+    });
+  };
+
+  const handleSortChange = (sort: SortOption) => {
+    setSortBy(sort);
+    updateURLParams({
+      area: selectedAreaCode,
+      types: selectedContentTypes,
+      sort: sort,
+      q: searchKeyword,
+    });
+  };
 
   // 필터 초기화
   const handleResetFilters = () => {
@@ -79,6 +150,7 @@ function HomePageContent() {
     setSelectedTourId(undefined);
     setSortBy('O');
     setPetFilterOptions({});
+    router.push('/', { scroll: false });
   };
 
   // 관광지 데이터 로드 핸들러
@@ -104,9 +176,9 @@ function HomePageContent() {
         selectedContentTypes={selectedContentTypes}
         sortBy={sortBy}
         petFilterOptions={petFilterOptions}
-        onAreaChange={setSelectedAreaCode}
-        onContentTypeChange={setSelectedContentTypes}
-        onSortChange={setSortBy}
+        onAreaChange={handleAreaChange}
+        onContentTypeChange={handleContentTypeChange}
+        onSortChange={handleSortChange}
         onPetFilterChange={setPetFilterOptions}
         onReset={handleResetFilters}
       />
@@ -126,6 +198,8 @@ function HomePageContent() {
               className="grid-cols-1"
               onToursLoad={handleToursLoad}
               onTourClick={setSelectedTourId}
+              onTourHover={setHoveredTourId}
+              selectedTourId={selectedTourId}
             />
           </div>
 
@@ -135,6 +209,8 @@ function HomePageContent() {
               <GoogleMap
                 tours={tours}
                 selectedTourId={selectedTourId}
+                hoveredTourId={hoveredTourId}
+                onMarkerClick={setSelectedTourId}
                 className="h-full"
               />
             </div>
@@ -160,6 +236,8 @@ function HomePageContent() {
                 sortBy={sortBy}
                 petFilterOptions={petFilterOptions}
                 onToursLoad={handleToursLoad}
+                onTourHover={setHoveredTourId}
+                selectedTourId={selectedTourId}
               />
             </div>
           )}
@@ -171,6 +249,8 @@ function HomePageContent() {
                 <GoogleMap
                   tours={tours}
                   selectedTourId={selectedTourId}
+                  hoveredTourId={hoveredTourId}
+                  onMarkerClick={setSelectedTourId}
                   className="h-full"
                 />
               </div>

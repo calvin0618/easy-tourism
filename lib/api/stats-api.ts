@@ -12,6 +12,8 @@
  */
 
 import { getAreaCodes, getAreaBasedList } from './tour-api';
+import { getAllPetFriendlyInfo } from './pet-friendly-api';
+import { createClerkSupabaseClient } from '@/lib/supabase/server';
 import type { AreaCodeInfo } from '@/lib/types/tour';
 import type { RegionStats, TypeStats, StatsSummary, StatsData } from '@/lib/types/stats';
 import { CONTENT_TYPE_LABELS } from '@/lib/types/tour';
@@ -245,6 +247,70 @@ export async function getAllStats(): Promise<StatsData> {
     console.error('[Stats API] 전체 통계 데이터 수집 중 에러:', error);
     console.groupEnd();
     throw error;
+  }
+}
+
+/**
+ * 반려동물 친화 통계 수집
+ * 지역별 및 타입별 반려동물 동반 가능한 관광지 통계를 수집합니다.
+ *
+ * @returns 반려동물 친화 통계
+ */
+export async function getPetFriendlyStats(): Promise<{
+  totalPetFriendly: number;
+  regionPetFriendly: Array<{ areaCode: string; areaName: string; count: number }>;
+  typePetFriendly: Array<{ contentTypeId: ContentType; typeName: string; count: number; percentage: number }>;
+}> {
+  console.group('[Stats API] 반려동물 친화 통계 수집 시작');
+
+  try {
+    const supabase = createClerkSupabaseClient();
+    
+    // 모든 반려동물 정보 조회
+    const petFriendlyResult = await getAllPetFriendlyInfo(supabase, {
+      limit: 10000,
+      offset: 0,
+    });
+
+    if (!petFriendlyResult.success || !petFriendlyResult.data) {
+      console.warn('[Stats API] 반려동물 정보 조회 실패');
+      return {
+        totalPetFriendly: 0,
+        regionPetFriendly: [],
+        typePetFriendly: [],
+      };
+    }
+
+    const petFriendlyList = petFriendlyResult.data.filter(info => info.is_pet_allowed);
+    const totalPetFriendly = petFriendlyList.length;
+
+    console.log(`[Stats API] 반려동물 동반 가능한 관광지: ${totalPetFriendly}개`);
+
+    // 지역별 통계는 관광지 정보가 필요하므로 간단히 전체 개수만 반환
+    // 실제 구현 시에는 관광지 정보와 매칭하여 지역별 통계를 계산할 수 있습니다
+    const regionPetFriendly: Array<{ areaCode: string; areaName: string; count: number }> = [];
+
+    // 타입별 통계도 관광지 정보가 필요하므로 간단히 전체 개수만 반환
+    const typePetFriendly: Array<{ contentTypeId: ContentType; typeName: string; count: number; percentage: number }> = [];
+
+    const stats = {
+      totalPetFriendly,
+      regionPetFriendly,
+      typePetFriendly,
+    };
+
+    console.log('[Stats API] 반려동물 친화 통계 수집 완료:', stats);
+    console.groupEnd();
+
+    return stats;
+  } catch (error) {
+    console.error('[Stats API] 반려동물 친화 통계 수집 중 에러:', error);
+    console.groupEnd();
+    return {
+      totalPetFriendly: 0,
+      regionPetFriendly: [],
+      typePetFriendly: [],
+    };
   }
 }
 

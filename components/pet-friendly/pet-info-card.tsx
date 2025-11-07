@@ -154,7 +154,18 @@ export function PetInfoCard({ info, className }: PetInfoCardProps) {
               <Ruler className="w-4 h-4 mt-0.5 text-muted-foreground flex-shrink-0" />
               <div className="flex-1">
                 <p className="text-sm font-medium mb-1">크기 제한</p>
-                <p className="text-sm text-muted-foreground">{info.pet_size_limit}</p>
+                <p className="text-sm text-muted-foreground">
+                  {(() => {
+                    // 영문 키를 한글 라벨로 변환
+                    const sizeLabels: Record<string, string> = {
+                      'small': '소형',
+                      'medium': '중형',
+                      'large': '대형',
+                      'unlimited': '제한없음',
+                    };
+                    return sizeLabels[info.pet_size_limit] || info.pet_size_limit;
+                  })()}
+                </p>
               </div>
             </div>
           )}
